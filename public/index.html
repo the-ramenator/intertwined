@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Intertwined 🗣️🔥💯‼️💥🦅</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/x-icon" href="assets/player.png" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Handjet:wght,ELGR,ELSH@100..900,1..2,2&family=Jersey+10&family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="particles"></div>
+    <div id="loadingCont">
+      <div id="loading"></div>
+      <p id="loadingWord">Loading...</p>
+      <div class="loadingPath"></div>
+      <span id="loadingText">0%</span>
+    </div>
+    <div id="creditsCont">
+      <button id="creditsClose">&times;</button>
+      <div id="credits">
+        <h1>Credits</h1>
+        <div class="creditsLeft">
+          Developer: <br><br> 
+          Designer: <br /><br />
+          Playtesters: <br><br><br><br>
+          Music: <br><br><br>
+          Sponsor: <br><br>
+          
+        </div>
+        <div class="creditsRight">
+          Neil Daniel <br /><br>
+          Maanas Kudrimoti<br /><br>
+          Alex Easley<br>
+          Karthik Vishwanatham<br>
+          Kazuki Wells
+          <br /><br>
+          Zachary Rainisch<br>
+          Kazuki Wells<br>
+          <br>
+          Heather Miller
+        </div>
+        <h2>✧·₊˚ Thanks for Playing ˚₊· ✧</h2>
+      </div>
+    </div>
+
+    <div id="pauseOverlay">
+      <div id="pauseOptions">
+        <button id="resumeBtn"><span>Resume</span></button>
+        <button id="pauseKeybindsBtn"><span>Controls</span></button>
+        <button id="pauseInfoBtn"><span>Info</span></button>
+        <button id="pauseHelpBtn"><span>Help</span></button>
+        <button id="pauseCreditsBtn"><span>Credits</span></button>
+      </div>
+      <div id="pauseHelpCont">
+        <h1>How to Play</h1>
+        <p>
+          ◊ Intertwined is a split screen multiplayer<br />
+          ◊ The player you control is always on the top<br />
+          ◊ You and your partner must try to reach the portals at the end of each level together<br />
+          ◊ Once you gain an ability, your partner has control over when it is activated<br />
+          ◊ Work collaboratively and try to beat the game as fast as possible<br /><br>
+          ◊ Keybinds & mobile buttons are customizable via the controls menu<br />
+        </p>
+        <button id="backHelp">Back</button>
+      </div>
+      <div id="pauseInfoCont">
+        <button id="backInfo">Go Back</button>
+        <button id="switchInfoBtn">Abilities</button>
+        <div id="pauseLevelInfo">
+          <h1>Levels</h1>
+          <h2 id="pauseInfoLevelPlayer1">Player 1</h2>
+          <h2 id="pauseInfoLevelPlayer2">Player 2</h2>
+          <div id="pauseInfoLevelDivider"></div>
+          <span id="pauselevel1Info">Level 1</span>
+          <span id="pauselevel2Info">Level 2</span>
+          <span id="pauselevel3Info">Level 3</span>
+          <span id="pauselevel4Info">Level 4</span>
+          <span id="pauselevel5Info">Level 5</span>
+          <span id="pauselevel6Info">Level 6</span>
+        </div>
+       <div id="pauseAbilityInfo">
+          <h1>Abilities</h1>
+          <h2 id="pauseInfoAbilitiesPlayer1">Player 1</h2>
+          <h2 id="pauseInfoAbilitiesPlayer2">Player 2</h2>
+          <div id="pauseInfoAbilitiesDivider"></div>
+          <span id="pauselevel1AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Crouch</span><br>Shrink player by 1/2</span>
+          <span id="pauselevel2AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Levitate</span><br>Slowly float upwards</span>
+          <span id="pauselevel3AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Glide</span><br>Decreased falling speed</span>
+          <span id="pauselevel4AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Shatter</span><br>Break 4 blocks</span>
+          <span id="pauselevel5AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Dash</span><br>Greatly increased movement speed</span>
+          <span id="pauselevel6AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Drone</span><br>Spawn a drone under the player (max 5)</span>
+        </div>
+      </div>
+      <div id="pauseKeybindsCont">
+        <h1>Keybinds</h1>
+        <div id="pauseKeybinds"">
+          <div
+class="keyLabelDiv div1">Left</div>
+          <div
+class="keyLabelDiv div2">Right</div>
+          <div
+class="keyLabelDiv div3">Jump</div>
+              <div
+          class="keyLabelDiv div4">Ability</div>
+          <div
+class="keyLabelDiv div5">Restart</div>
+             <div
+          class="keyLabelDiv div11">Pause</div>
+          
+          <div tabindex="0" data-event="left" data-key="ArrowLeft"
+class="keydownDiv div6"></div>
+          <div tabindex="0" data-event="right" data-key="ArrowRight"
+class="keydownDiv div7"></div>
+          <div tabindex="0" data-event="jump" data-key="ArrowUp"
+          class="keydownDiv div8"></div>
+          <div tabindex="0"  data-event="ability" data-key="k"
+class="keydownDiv div9"></div>
+        <div tabindex="0" data-event="restart" data-key="r"
+          class="keydownDiv div10"></div>
+          <div tabindex="0" data-event="pause" data-key="b"
+class="keydownDiv div12"></div>
+        </div>
+        <button id="resetKeybinds">Reset Keybinds</button>
+      <button id="saveKeybinds">Save</button>
+        <button id="backKeybinds">Back</button>
+        <button id="mobileKeybinds">Mobile Layout</button>
+      </div>
+    </div>
+
+    <div id="setupContainer">
+      <div class="scene">
+        <div id="leftCont">
+          <div id="left"></div>
+        </div>
+        <div id="rightCont">
+          <div id="right"></div>
+        </div>
+        <div class="tearDividerLeft"></div>
+        <div class="tearDividerRight"></div>
+        <div class="insetGradient"></div>
+        <div class="bottomGradient"></div>
+        <svg id="tear" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path id="tearPath" fill="none" stroke-width="7" />
+        </svg>
+        <div id="title">
+          <h1 id="title-white" class="float">Inter</h1>
+          <h1 id="title-black" class="float2">Twined</h1>
+        </div>
+        <div id="roomDataDiv">
+          <h2 class="roomLabel">Room Code:</h2>
+          <h2 id="connection1" class="connected"></h2>
+          <span id="connection1id"></span>
+          <h2 id="connection2" class="waiting"></h2>
+          <span id="connection2id"></span>
+        </div>
+        <img
+          src="assets/copy_icon.png"
+          id="copyLink"
+          data-url=""
+          data-code=""
+          title="Copy Link"
+        />
+        <button id="leaveBtn">Leave Room</button>
+        <button id="leaveMatchmaking">Exit matchmaking</button>
+
+        <div style="display: none" id="playerSelect">
+          <button id="player1" class="connected float4">Select Player 1</button>
+          <button id="player2" class="connected float3">Select Player 2</button>
+          <button id="clear">Clear Selection</button>
+          <button id="startBtn">Start Game</button>
+        </div>
+
+        <div id="join">
+          <button id="createBtn" class="float3">Create Room</button><br />
+          <span id="joinCodeError"></span>
+          <input
+            id="roomCodeInput"
+            type="text"
+            pattern="[A-Z0-9]*"
+            oninput="this.value = this.value.toUpperCase()"
+            placeholder="Enter room code"
+            maxlength="6"
+          />
+          <a href="https://the-ramenator.github.io"><img src="https://the-ramenator.github.io/assets/homepage/favicon.png" class="logo"></a>
+          <button id="joinToggle" class="float4">Join Room</button>
+          <button id="matchmakingBtn" class="float5">Matchmaking</button>
+          <!-- Modals Go here type shi -->
+          <button id="infoBtn" class="float5">Info</button>
+          <button id="creditsBtn" class="float6">Credits</button>
+          <div id="infoOverlay">
+            <div id="infoModal">
+              <button id="infoClose">&times;</button>
+              <h1>Info</h1>
+              <p>
+                ◊ Some crap about what comp this was entered for<br />
+                ◊ Mechanics → ts game 2 player, 3 levels for each player<br />
+                ◊ Sumn about the goal of the game<br />
+                ◊ Maybe some other info idk<br />
+                ◊ Sumn about how abilities work fr<br />
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- <p>Status:</p> 
+      <pre
+        style="
+          height: 50vh;
+          width: 30vw;
+          overflow-y: scroll;
+          overflow-wrap: word-break;
+          border: 1px solid black;
+        "
+        id="status"
+      ></pre>-->
+    </div>
+    <div id="gameOverlay"></div> <!-- Use this to fade between levels fr -->
+    <div style="display: none" id="gameContainer">
+      <div id="chatCont">
+        <div id="chatHeader">Chat<span id="chatClose" style="float: right; cursor: pointer;font-size: 150%">&times;</span></div>
+
+        <div id="chatBody">
+          <div id="chatMessages"></div>
+
+          <div id="chatInputRow">
+            <input id="chatInput" type="text">
+            <button id="chatSend" class="fa">&#xf1d8;</button> 
+            <!-- &#xf1d9;-->
+          </div>
+        </div>
+      </div>
+
+      <div id="divider"></div>
+      <span id="localStatus"></span>
+      <span id="remoteStatus"></span>
+      <span id="timer"></span>
+      <p id="gameStatus"></p>
+      <img id="pauseBtn" src="assets/pause_icon.png">
+      <img id="messagesBtn" src="assets/chat_icon.png">
+      <div id="newMessageDot"></div>
+      <div id="mobileOptions">
+      <button id="leftBtn">Left</button>
+      <button id="rightBtn">Right</button>
+      <button id="jumpBtn">Jump</button>
+      <button id="abilityBtn">Ability</button>
+      <button id="restartBtn">Restart</button>
+      </div>
+    </div>
+    <script src="client.js"></script>
+    <script src="ui.js"></script>
+  </body>
+</html>
