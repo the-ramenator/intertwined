@@ -240,14 +240,65 @@ function toggleJoin() {
     joinRoom();
   });
 }
+function getRandomKeys(obj, count) {
+  const keys = Object.keys(obj);
+  if (keys.length < count) {
+    return [];
+  }
+  const randomKeys = [];
+  while (randomKeys.length < count) {
+    const randomIndex = Math.floor(Math.random() * keys.length);
+    const randomKey = keys[randomIndex];
 
-document.body.addEventListener("mousemove", function (e) {
-  const mouseX = (1 * e.clientX) / window.innerWidth;
-  const mouseY = (0.5 * e.clientY) / window.innerHeight;
-  document.getElementById("left").style.transform =
-    `translate3d(-${mouseX}%, -${mouseY}%, 0)`;
-  document.getElementById("right").style.transform =
-    `translate3d(${mouseX - 10}%, ${mouseY - 1}%, 0)`;
+    if (!randomKeys.includes(randomKey)) {
+      randomKeys.push(randomKey);
+    }
+  }
+  return randomKeys;
+}
+
+const selectedKeys = getRandomKeys(LEVEL_BACKGROUNDS, 2);
+for (let i = 0; i < 2; i++) {
+  const backgroundSelected = LEVEL_BACKGROUNDS[selectedKeys[i]];
+
+  backgroundSelected.forEach(({ key, factor }) => {
+    const layerNum = key.match(/layer(\d+)/)[1];
+    const levelNum = key.match(/(level\d+)/)[1];
+    const element = document.createElement("div");
+
+    element.dataset.factor = factor;
+
+    element.style.width = "150%";
+    element.style.height = "125vh";
+    element.style.position = "absolute";
+    element.style.top = "0";
+    element.style.left = "0";
+    element.style.backgroundSize = "cover";
+    element.style.backgroundRepeat = "no-repeat";
+    element.classList.add("bgScroll");
+
+    element.style.backgroundImage = `url('assets/backgrounds/${levelNum}/layer${layerNum}.png')`;
+
+    if (i === 0) {
+      document.getElementById("leftCont").appendChild(element);
+    } else {
+      document.getElementById("rightCont").appendChild(element);
+    }
+  });
+}
+
+document.body.addEventListener("mousemove", (e) => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 2;
+  const y = (e.clientY / window.innerHeight - 0.5) * 2;
+
+  document.querySelectorAll(".bgScroll").forEach((layer) => {
+    const speed = layer.dataset.factor * 3;
+    const moveX = x * speed * 100;
+    const moveY = y * speed * 100;
+    const layerWidth = layer.getBoundingClientRect().width * 0.1;
+    const layerHeight = layer.getBoundingClientRect().height * 0.1;
+    layer.style.transform = `translate3d(${moveX - layerWidth}px, ${moveY - layerHeight}px, 0)`;
+  });
 });
 
 document.getElementById("joinToggle").addEventListener("click", function () {
@@ -418,6 +469,12 @@ const dotsInterval = setInterval(() => {
   dotCount = (dotCount + 1) % 4;
   loadingWord.textContent = "Loading" + ".".repeat(dotCount);
 }, 500);
+
+//set favicon
+const favicons = ["assets/p1.png", "assets/p2.png"];
+document.getElementById("favicon").href =
+  favicons[Math.floor(Math.random() * favicons.length)];
+
 // Real load completion
 window.onload = () => {
   clearInterval(loadingInterval);

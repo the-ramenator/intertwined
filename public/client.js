@@ -10,6 +10,8 @@ let spawnXGlobal, spawnYGlobal; //update this for checkpoints
 let currentLevelName, otherLevelName;
 let mainLayerXOffset, mainLayerYOffset;
 
+let coyote = false;
+
 let levelTimer, levelTimerInterval, startTime;
 let finalLevelActive = false;
 
@@ -21,6 +23,18 @@ let leftBtnActive = false,
 
 let levelInfo, abilityInfo;
 
+let mapAnimatedTiles1 = [];
+let mapAnimatedTiles2 = [];
+
+const CHECKPOINT_DEFAULT_TILES = [345, 346, 393, 394];
+const CHECKPOINT_ACTIVE_TILES = [347, 348, 395, 396];
+const DEATH_TILES = [
+    19, 20, 27, 28, 818, 819, 770, 771 /*, 756, 708, 660, 612*/,
+];
+
+let checkpoints = [];
+let activeCheckpointId = null;
+
 let localPlayerState = {
     x: 0,
     y: 0,
@@ -28,6 +42,8 @@ let localPlayerState = {
 
 let droneActive = false;
 let dronePlatform, dronePlatforms;
+
+let usedJump = false;
 
 let beaten = [];
 let active = [];
@@ -69,6 +85,71 @@ let locked = [
         ability: "drone",
     },
 ];
+const LEVEL_BACKGROUNDS = {
+    level1: [
+        { key: "level1layer1", factor: 0.05 },
+        { key: "level1layer2", factor: 0.1 },
+        { key: "level1layer3", factor: 0.15 },
+    ],
+    level2: [
+        { key: "level2layer1", factor: 0.05 },
+        { key: "level2layer2", factor: 0.1 },
+        { key: "level2layer3", factor: 0.15 },
+        { key: "level2layer4", factor: 0.2 },
+    ],
+    level3: [
+        { key: "level3layer1", factor: 0.05 },
+        { key: "level3layer2", factor: 0.1 },
+        { key: "level3layer3", factor: 0.15 },
+        { key: "level3layer4", factor: 0.2 },
+        { key: "level3layer5", factor: 0.25 },
+        { key: "level3layer6", factor: 0.3 },
+    ],
+    level4: [
+        { key: "level4layer1", factor: 0.05 },
+        { key: "level4layer2", factor: 0.1 },
+        { key: "level4layer3", factor: 0.15 },
+    ],
+    level5: [
+        { key: "level5layer1", factor: 0.05 },
+        { key: "level5layer2", factor: 0.1 },
+        { key: "level5layer3", factor: 0.15 },
+    ],
+    level6: [
+        { key: "level6layer1", factor: 0.05 },
+        { key: "level6layer2", factor: 0.1 },
+        { key: "level6layer3", factor: 0.15 },
+        { key: "level6layer4", factor: 0.2 },
+        { key: "level6layer5", factor: 0.25 },
+    ],
+};
+
+const layerTints = {
+    level1: {
+        // tint: 0xffb84f,
+        tint: 0xffffff,
+    },
+    level2: {
+        //tint: 0x00f783,
+        tint: 0xffffff,
+    },
+    level3: {
+        //tint: 0xcf6784,
+        tint: 0xffffff,
+    },
+    level4: {
+        // tint: 0xa08c90,
+        tint: 0xffffff,
+    },
+    level5: {
+        // tint: 0x6c1812,
+        tint: 0xffffff,
+    },
+    level6: {
+        // tint: 0xff78bf,
+        tint: 0xffffff,
+    },
+};
 
 function getPlayerByOwner(owner) {
     if ((owner === 1 && isPlayer1) || (owner === 2 && !isPlayer1)) {
@@ -80,6 +161,10 @@ function getPlayerByOwner(owner) {
 let activeInterval;
 let gotAbility = false;
 function updateMessages(classes, msg, isLocal, duration = false) {
+    if (activeInterval) {
+        clearInterval(activeInterval);
+        activeInterval = null;
+    }
     let el;
     if (isLocal) {
         el = document.getElementById("localStatus");
@@ -90,7 +175,7 @@ function updateMessages(classes, msg, isLocal, duration = false) {
     el.classList.add(...classes);
     el.innerHTML = msg;
     if (duration) {
-        let counter = duration / 1000;
+        /*let counter = duration / 1000;
         activeInterval = setInterval(() => {
             el.innerHTML = msg + ": " + counter.toFixed(1) + "s";
             counter -= 0.1;
@@ -98,20 +183,31 @@ function updateMessages(classes, msg, isLocal, duration = false) {
         setTimeout(() => {
             clearInterval(activeInterval);
             updateMessages([], "", isLocal);
-        }, duration);
+        }, duration);*/
+        const endTime = Date.now() + duration;
+
+        activeInterval = setInterval(() => {
+            const remaining = Math.max(0, (endTime - Date.now()) / 1000);
+            el.innerHTML = msg + ": " + remaining.toFixed(1) + "s";
+
+            if (remaining <= 0) {
+                clearInterval(activeInterval);
+                updateMessages([], "", isLocal);
+            }
+        }, 100);
     }
 }
 const abilities = {
     crouch: {
         activate({ abilityOwner, duration }) {
-            getPlayerByOwner(abilityOwner).setScale(0.1);
+            getPlayerByOwner(abilityOwner).setScale(0.5);
             getPlayerByOwner(abilityOwner).crouchActive = true;
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             updateMessages(["green"], "Crouch Active", isLocal, duration);
         },
         deactivate({ abilityOwner }) {
-            getPlayerByOwner(abilityOwner).setScale(0.2);
+            getPlayerByOwner(abilityOwner).setScale(1);
             getPlayerByOwner(abilityOwner).crouchActive = false;
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
@@ -208,8 +304,8 @@ const abilities = {
                 getPlayerByOwner(abilityOwner).setVelocityY(0);
                 getPlayerByOwner(abilityOwner).setPosition(x, y);
                 dronePlatform = dronePlatforms
-                    .create(x, y + 140, "p1")
-                    .setScale(1.25, 0.25);
+                    .create(x, y + 50, "drone")
+                    .setScale(1);
                 //camera ignore
                 if (isPlayer1) {
                     camTop.ignore(dronePlatform);
@@ -592,28 +688,30 @@ socket.on("playerStatusUpdate", ({ disabled, room, canStart }) => {
         player1Btn.classList.add("selected");
         player1Btn.classList.remove("connected");
         if (room.users[socket.id].player == 1) {
-            player1Btn.innerHTML = "Player 1 (You)";
+            player1Btn.innerHTML = "Phrederick (You)";
+            document.getElementById("favicon").href = "assets/p1.png";
         } else {
-            player1Btn.innerHTML = "Player 1 (Taken)";
+            player1Btn.innerHTML = "Phrederick (Taken)";
         }
     } else {
         player1Btn.classList.remove("selected");
         player1Btn.classList.add("connected");
-        player1Btn.innerHTML = "Select Player 1";
+        player1Btn.innerHTML = "Select Phrederick";
     }
     if (disabled.player2) {
         player2Btn.classList.add("selected");
         player2Btn.classList.remove("connected");
-        player2Btn.innerHTML = "Player 2 (Taken)";
+        player2Btn.innerHTML = "Alphred (Taken)";
         if (room.users[socket.id].player == 2) {
-            player2Btn.innerHTML = "Player 2 (You)";
+            player2Btn.innerHTML = "Alphred (You)";
+            document.getElementById("favicon").href = "assets/p2.png";
         } else {
-            player2Btn.innerHTML = "Player 2 (Taken)";
+            player2Btn.innerHTML = "Alphred (Taken)";
         }
     } else {
         player2Btn.classList.remove("selected");
         player2Btn.classList.add("connected");
-        player2Btn.innerHTML = "Select Player 2";
+        player2Btn.innerHTML = "Select Alphred";
     }
     startBtn.disabled = !canStart;
 });
@@ -645,17 +743,105 @@ socket.on("startGame", (roomData) => {
                 gravity: { y: 500 },
                 fps: 60,
                 timeScale: 1,
-                debug: true,
+                debug: false,
             },
         },
         scene: { preload: preload, create: create, update: update },
     };
     game = new Phaser.Game(config);
 });
+
+function deathReset() {
+    localPlayer.setTint(0xff0000);
+    scene.pausePhysics = true;
+    setPhysicsOn(localPlayer, false);
+
+    setTimeout(function () {
+        localPlayer.clearTint();
+        scene.pausePhysics = false;
+        setPhysicsOn(localPlayer, true);
+
+        localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+        localPlayer.setVelocity(0, 0);
+        if (currentLevelName == "level6") {
+            socket.emit("droneRecharge", {
+                room: roomCode,
+            });
+        }
+    }, 1000);
+}
+function getAnimatedTiles(map) {
+    const animatedTiles = [];
+
+    map.tilesets.forEach((tileset) => {
+        if (!tileset.tileData) return;
+
+        Object.values(tileset.tileData).forEach((tileData) => {
+            if (tileData.animation) {
+                animatedTiles.push({
+                    tileset,
+                    frames: tileData.animation.map((f) => ({
+                        tileid: f.tileid + tileset.firstgid, // adjust for tileset GID
+                        duration: f.duration,
+                    })),
+                });
+            }
+        });
+    });
+
+    return animatedTiles;
+}
+
+function getAllMapAnimatedTiles(layers, animatedTiles) {
+    const allAnimatedTiles = [];
+
+    layers.forEach((layer) => {
+        layer.forEachTile((tile) => {
+            const animInfo = animatedTiles.find((a) =>
+                a.frames.some((f) => f.tileid === tile.index),
+            );
+
+            if (animInfo) {
+                const currentFrameIndex = animInfo.frames.findIndex(
+                    (f) => f.tileid === tile.index,
+                );
+
+                allAnimatedTiles.push({
+                    tile,
+                    frames: animInfo.frames,
+                    currentFrame:
+                        currentFrameIndex >= 0 ? currentFrameIndex : 0,
+                    elapsed: 0,
+                });
+            }
+        });
+    });
+
+    return allAnimatedTiles;
+}
+
+function updateTileAnimations(mapAnimatedTiles, delta) {
+    mapAnimatedTiles.forEach((tileAnim) => {
+        tileAnim.elapsed += delta;
+
+        tileAnim.tile.setCollision(false);
+
+        const currentFrame = tileAnim.frames[tileAnim.currentFrame];
+
+        if (tileAnim.elapsed >= currentFrame.duration) {
+            tileAnim.elapsed -= currentFrame.duration;
+            tileAnim.currentFrame =
+                (tileAnim.currentFrame + 1) % tileAnim.frames.length;
+            const nextFrame = tileAnim.frames[tileAnim.currentFrame];
+            tileAnim.tile.index = nextFrame.tileid;
+            tileAnim.tile.setCollision(DEATH_TILES.includes(nextFrame.tileid));
+        }
+    });
+}
 function buildLevel({
     map,
     mapKey,
-    tileset,
+    tilesets,
     owner,
     offsetX,
     offsetY,
@@ -669,18 +855,56 @@ function buildLevel({
 }) {
     const layers = [];
     const colliders = [];
+    const isLocalOwner =
+        (owner === 1 && isPlayer1) || (owner === 2 && !isPlayer1);
+
+    const backgrounds = [];
+    let cameraWidth = window.innerWidth;
+    let cameraHeight = window.innerHeight / 2;
+
+    let mapWidth = map.widthInPixels;
+    let mapHeight = map.heightInPixels;
+
+    //generate parallax
+    LEVEL_BACKGROUNDS[mapKey].forEach((bg, index) => {
+        const image = scene.add
+            .image(0, 0, bg.key)
+            // .setOrigin(0, 0)
+            .setScrollFactor(bg.factor)
+            .setDepth(-100 + index);
+        let scaleX =
+            (cameraWidth + (mapWidth - cameraWidth) * bg.factor) / image.width;
+        let scaleY =
+            (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
+            image.height;
+        let finalScale = Math.max(scaleX, scaleY);
+        finalScale *= 2;
+        image.setScale(finalScale);
+        // image.x = (-image.width * finalScale) / 2;
+        // image.y = (-image.height * finalScale) / 2;
+        if (isLocalOwner) {
+            camBottom.ignore(image);
+            // image.x = camTop.scrollX * (1 - bg.factor);
+            // image.y = camTop.scrollY * (1 - bg.factor);
+        } else {
+            camTop.ignore(image);
+            // image.x = camBottom.scrollX * (1 - bg.factor);
+            // image.y = camBottom.scrollY * (1 - bg.factor);
+        }
+        backgrounds.push(image);
+    });
+    scene[mapKey + "bg"] = backgrounds;
+    // console.log(scene[mapKey + "bg"]);
     map.layers.forEach((layerData) => {
         const layer = map.createLayer(
             layerData.name,
-            tileset,
+            tilesets,
             offsetX,
             offsetY,
         );
 
         layers.push(layer);
 
-        const isLocalOwner =
-            (owner === 1 && isPlayer1) || (owner === 2 && !isPlayer1);
         // Camera visibility && ability setting
         if (isLocalOwner) {
             camBottom.ignore(layer);
@@ -697,133 +921,286 @@ function buildLevel({
             updateMessages(["purple"], "Current Level: " + mapName, false);
         }
 
-        if (!isLocalOwner) return;
+        // if (!isLocalOwner) return;
+        if (layerData.name == "Deco" || layerData.name == "Deco 2") {
+            if (layerTints[mapKey]["tint"] != -1) {
+                layer.setTint(layerTints[mapKey]["tint"]);
+            }
+        }
 
-        if (layerData.name === "HB") {
-            layer.setCollisionByProperty({ collides: true });
-            layer.setCollisionByExclusion([-1]);
-            const collider = scene.physics.add.collider(localPlayer, layer);
-            colliders.push(collider);
-        } else if (layerData.name === "Win") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    socket.emit("gameWinUpdate", {
-                        room: roomCode,
-                        touching: true,
-                    });
-                    setTimeout(function () {
+        if (layerData.name == "Deco") {
+            layer.setVisible(true);
+            layer.setDepth(-10);
+        } else if (
+            layerData.name == "Deco 2" ||
+            layerData.name == "BB" ||
+            layerData.name == "Checkpoint"
+        ) {
+            layer.setVisible(true);
+            layer.setDepth(-9);
+        } else {
+            layer.setVisible(false);
+        }
+        if (layerData.name === "Checkpoint" && isLocalOwner) {
+            layer.forEachTile((tile) => {
+                if (tile.index === -1) return;
+
+                // Only register top-left tile
+                const tiles = getCheckpointTiles(tile, layer);
+                if (tiles.length !== 4) return;
+
+                checkpoints.push({
+                    id: checkpoints.length,
+                    tiles,
+                });
+            });
+        }
+
+        if (isLocalOwner) {
+            if (layerData.name === "HB") {
+                // layer.setVisible(false);
+                layer.setCollisionByProperty({ collides: true });
+                layer.setCollisionByExclusion([-1]);
+                const collider = scene.physics.add.collider(localPlayer, layer);
+                colliders.push(collider);
+            } else if (layerData.name === "Win") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
                         socket.emit("gameWinUpdate", {
                             room: roomCode,
-                            touching: false,
+                            touching: true,
                         });
-                    }, 500);
-                },
-            );
-            colliders.push(overlap);
-        } else if (layerData.name === "Death") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    // localPlayer.setPosition(spawnX, spawnY);
-                },
-            );
-            colliders.push(overlap);
-        } else if (layerData.name === "AB") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    if (!gotAbility) {
-                        socket.emit("abilityPickup", {
+                        setTimeout(function () {
+                            socket.emit("gameWinUpdate", {
+                                room: roomCode,
+                                touching: false,
+                            });
+                        }, 500);
+                    },
+                );
+                colliders.push(overlap);
+            } else if (layerData.name === "Death") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        // console.log("OVERLAP:", tile.index, tile.collides);
+                        /*console.log(tile.index);
+                        if (DEATH_TILES.includes(tile.index)) {*/
+                        deathReset();
+                        // }
+                    },
+                );
+                colliders.push(overlap);
+            } else if (layerData.name === "AB") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        if (!gotAbility) {
+                            socket.emit("abilityPickup", {
+                                room: roomCode,
+                                state: true,
+                            });
+                        }
+                    },
+                );
+                colliders.push(overlap);
+            } else if (layerData.name === "Teleport") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        localPlayer.setPosition(
+                            tile.properties.x,
+                            tile.properties.y,
+                        );
+                    },
+                );
+                colliders.push(overlap);
+            } /* else if (layerData.name === "Jump") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        localPlayer.setVelocityY(-600);
+                    },
+                );
+                colliders.push(overlap);
+            } */ else if (layerData.name === "BB") {
+                layer.setCollisionByProperty({ collides: true });
+                layer.setCollisionByExclusion([-1]);
+                const overlap = scene.physics.add.collider(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        const adjacentTiles = getTouchingTiles(
+                            tile,
+                            tile.layer.tilemapLayer,
+                        );
+
+                        adjacentTiles.forEach((tile) => {
+                            //tile.layer.tilemapLayer.removeTileAt(tile.x, tile.y);
+                            socket.emit("destroyBlock", {
+                                room: roomCode,
+                                mapId: mapKey, //need to rework this
+                                layer: tile.layer.name,
+                                activatedBy: socket.id,
+                                x: tile.x,
+                                y: tile.y,
+                            });
+                        });
+                    },
+                );
+                colliders.push(overlap);
+            } else if (layerData.name === "Recharge") {
+                //layer.setVisible(false);
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return false;
+                        socket.emit("droneRecharge", {
                             room: roomCode,
-                            state: true,
                         });
+                    },
+                );
+                colliders.push(overlap);
+            } else if (layerData.name === "Checkpoint") {
+                const overlap = scene.physics.add.overlap(
+                    localPlayer,
+                    layer,
+                    (player, tile) => {
+                        if (tile.index === -1) return;
+
+                        const tiles = getCheckpointTiles(tile, layer);
+                        if (tiles.length !== 4) return;
+
+                        activateCheckpoint(tiles, mapKey, offsetX, offsetY);
+                    },
+                );
+
+                colliders.push(overlap);
+            }
+        }
+    });
+    let jumpGroup;
+    if (mapKey === "level3") {
+        const jumpLayer = map.getObjectLayer("ObjJump");
+        jumpGroup = scene.physics.add.staticGroup();
+
+        jumpLayer.objects.forEach((obj) => {
+            const x = obj.x + obj.width / 2;
+            const y = obj.y - obj.height / 2;
+
+            const block = jumpGroup.create(
+                x + offsetX,
+                y + offsetY,
+                "flowerSheet",
+            );
+
+            block.setSize(obj.width, obj.height);
+        });
+        if (isPlayer1) {
+            scene.physics.add.overlap(
+                localPlayer,
+                jumpGroup,
+                (player, tile) => {
+                    if (!usedJump) {
+                        tile.anims.play("flower", true);
+                        localPlayer.setVelocityY(-600);
+                        usedJump = true;
+
+                        setTimeout(() => {
+                            tile.anims.playReverse("flower");
+                            setTimeout(() => {
+                                usedJump = false;
+                            }, 1600);
+                        }, 3000);
                     }
                 },
             );
-            colliders.push(overlap);
-        } else if (layerData.name === "Teleport") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    localPlayer.setPosition(
-                        tile.properties.x,
-                        tile.properties.y,
-                    );
-                },
-            );
-            colliders.push(overlap);
-        } else if (layerData.name === "Jump") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    localPlayer.setVelocityY(-600);
-                },
-            );
-            colliders.push(overlap);
-        } else if (layerData.name === "BB") {
-            layer.setCollisionByProperty({ collides: true });
-            layer.setCollisionByExclusion([-1]);
-            const overlap = scene.physics.add.collider(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false; //alert("hehe touchig");
-                    const adjacentTiles = getTouchingTiles(
-                        tile,
-                        tile.layer.tilemapLayer,
-                    );
-
-                    adjacentTiles.forEach((tile) => {
-                        //tile.layer.tilemapLayer.removeTileAt(tile.x, tile.y);
-                        socket.emit("destroyBlock", {
-                            room: roomCode,
-                            mapId: mapKey, //need to rework this
-                            layer: tile.layer.name,
-                            activatedBy: socket.id,
-                            x: tile.x,
-                            y: tile.y,
-                        });
-                    });
-                },
-            );
-            colliders.push(overlap);
-        } else if (layerData.name === "Recharge") {
-            const overlap = scene.physics.add.overlap(
-                localPlayer,
-                layer,
-                (player, tile) => {
-                    if (tile.index === -1) return false;
-                    socket.emit("droneRecharge", {
-                        room: roomCode,
-                    });
-                },
-            );
-            colliders.push(overlap);
+            camBottom.ignore(jumpGroup.getChildren());
+        } else {
+            camTop.ignore(jumpGroup.getChildren());
         }
-    });
+    }
 
-    activeLevels.push({
-        map,
-        layers,
-        colliders,
-    });
+    // obj death
+    if (isLocalOwner) {
+        const deathLayer = map.getObjectLayer("ObjDeath");
+        const deathGroup = scene.physics.add.staticGroup();
+
+        deathLayer.objects.forEach((obj) => {
+            const x = obj.x + obj.width / 2;
+            const y = obj.y - obj.height / 2;
+            const block = deathGroup.create(x + offsetX, y + offsetY, null);
+
+            block.setSize(obj.width, obj.height);
+            block.setVisible(false);
+
+            if (obj.rotation) {
+                //doesn't work unfortunately cuz phaser physics is gay
+                block.setRotation(Phaser.Math.DegToRad(obj.rotation));
+            }
+        });
+        const deathCollider = scene.physics.add.collider(
+            localPlayer,
+            deathGroup,
+            (player, tile) => {
+                deathReset();
+            },
+        );
+        colliders.push(deathCollider);
+    }
+    if (jumpGroup) {
+        activeLevels.push({
+            map,
+            layers,
+            colliders,
+            key: mapKey,
+            jumpGroup,
+        });
+    } else {
+        activeLevels.push({
+            map,
+            layers,
+            colliders,
+            key: mapKey,
+        });
+    }
     fadeOutOverlay();
+
     return [map.widthInPixels, map.heightInPixels];
 }
 
 function clearAllLevels(scene) {
+    checkpoints.length = 0;
+    activeCheckpointId = null;
+
     activeLevels.forEach((level) => {
+        if (scene[level.key + "bg"]) {
+            scene[level.key + "bg"].forEach((bg) => bg.destroy());
+            scene[level.key + "bg"] = [];
+        }
+        if (level.jumpGroup) {
+            level.jumpGroup.clear(true, true);
+            level.jumpGroup.destroy(true);
+        }
+
         level.colliders.forEach((c) => {
             scene.physics.world.removeCollider(c);
         });
@@ -896,6 +1273,14 @@ socket.on("gameWin", (msg) => {
         isPlayer1: isPlayer1,
         room: roomCode,
     });
+
+    localPlayer.crouchActive = false;
+    localPlayer.levitateActive = false;
+    localPlayer.glideActive = false;
+    localPlayer.breakActive = false;
+    localPlayer.dashActive = false;
+    localPlayer.droneActive = false;
+
     setTimeout(function () {
         updateMessages([], "", true);
         updateMessages([], "", false);
@@ -905,26 +1290,22 @@ socket.on("gameWin", (msg) => {
 let camTop;
 let camBottom;
 function generateLevels(nextLevel1, nextLevel2) {
-    const mapData1 = scene.cache.tilemap.get(nextLevel1.mapKey).data;
-    const mapData2 = scene.cache.tilemap.get(nextLevel2.mapKey).data;
-
-    const tilesetName1 = mapData1.tilesets[0].name;
-    const tilesetName2 = mapData2.tilesets[0].name;
-
-    // const tileKey1 = tilesetName1 === "TestTS1" ? "testTiles" : "RDTiles";
-    // const tileKey2 = tilesetName2 === "TestTS1" ? "testTiles" : "RDTiles";
     const map1 = scene.make.tilemap({ key: nextLevel1.mapKey });
-    const tileset1 = map1.addTilesetImage(tilesetName1, "RDTiles");
+    const tilesets1 = map1.tilesets.map((ts) =>
+        map1.addTilesetImage(ts.name, ts.name),
+    );
 
     const map2 = scene.make.tilemap({ key: nextLevel2.mapKey });
-    const tileset2 = map2.addTilesetImage(tilesetName2, "RDTiles");
+    const tilesets2 = map2.tilesets.map((ts) =>
+        map2.addTilesetImage(ts.name, ts.name),
+    );
     localPlayer.setPosition(256, 256);
     remotePlayer.setPosition(256, 256);
 
     let [world1W, world1H] = buildLevel({
         map: map1,
         mapKey: nextLevel1.mapKey,
-        tileset: tileset1,
+        tilesets: tilesets1,
         owner: nextLevel1.owner,
         offsetX: nextLevel1.offsetX,
         offsetY: nextLevel1.offsetY,
@@ -940,7 +1321,7 @@ function generateLevels(nextLevel1, nextLevel2) {
     let [world2W, world2H] = buildLevel({
         map: map2,
         mapKey: nextLevel2.mapKey,
-        tileset: tileset2,
+        tilesets: tilesets2,
         owner: nextLevel2.owner,
         offsetX: nextLevel2.offsetX,
         offsetY: nextLevel2.offsetY,
@@ -961,12 +1342,43 @@ function generateLevels(nextLevel1, nextLevel2) {
 
     maps[nextLevel1.mapKey] = map1;
     maps[nextLevel2.mapKey] = map2;
+
+    const animatedTiles1 = getAnimatedTiles(map1);
+    mapAnimatedTiles1 = getAllMapAnimatedTiles(
+        activeLevels[0].layers,
+        animatedTiles1,
+    );
+
+    const animatedTiles2 = getAnimatedTiles(map2);
+    mapAnimatedTiles2 = getAllMapAnimatedTiles(
+        activeLevels[1].layers,
+        animatedTiles2,
+    );
 }
 let remoteTargetX, remoteTargetY;
 socket.on("playerUpdate", (data) => {
     remoteTargetX = data.x;
     remoteTargetY = data.y;
+    if (data.right) {
+        remotePlayer.flipX = false;
+        if (!isPlayer1) {
+            remotePlayer.anims.play("p1", true);
+        } else {
+            remotePlayer.anims.play("p2", true);
+        }
+    } else if (data.left) {
+        remotePlayer.flipX = true;
+        if (!isPlayer1) {
+            remotePlayer.anims.play("p1", true);
+        } else {
+            remotePlayer.anims.play("p2", true);
+        }
+    } else {
+        remotePlayer.anims.stop();
+        remotePlayer.setFrame(0);
+    }
 });
+
 let pendingLevels = null;
 
 socket.on("generateLevels", (data) => {
@@ -990,7 +1402,43 @@ function applyLevels(data) {
         updateInfo();
         setTimeout(fadeOutOverlay, 1000);
         //run final level
-        mergeCameras();
+        // mergeCameras();
+
+        //return to home
+        document.getElementById("gameOverlay").style.display = "block";
+        setTimeout(function () {
+            document.getElementById("gameOverlay").style.opacity = "1";
+        }, 50);
+        document.getElementById("gameOverlay").innerHTML +=
+            `<h1 style="position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); padding: 0.1em; font-size: 7em; width: 100%; text-align: center;" class="connected">Game Cleared</h1>`;
+
+        setTimeout(function () {
+            document.getElementById("gameOverlay").style.opacity = "0";
+            setTimeout(function () {
+                document.getElementById("gameOverlay").style.display = "none";
+            }, 500);
+
+            document.getElementById("gameContainer").style.display = "none";
+            document.getElementById("setupContainer").style.display = "block";
+            document.getElementById("roomDataDiv").style.opacity = "0";
+            document.getElementById("join").style.opacity = "1";
+            document.getElementById("leaveBtn").style.opacity = "0";
+            document.getElementById("copyLink").style.opacity = "0";
+            playerSelect.style.display = "none";
+            setTimeout(function () {
+                document.getElementById("roomDataDiv").style.display = "none";
+                document.getElementById("join").style.display = "block";
+                document.getElementById("leaveBtn").style.display = "none";
+                document.getElementById("copyLink").style.display = "none";
+                game.destroy();
+                game = null;
+            }, 500);
+            resetUI();
+            document.getElementById("title-white").innerHTML = "Inter";
+            document.getElementById("title-black").innerHTML = "Twined";
+            socket.emit("leaveRoom", roomCode);
+            document.getElementById("particles").style.display = "block";
+        }, 20000);
     } else {
         wonAlready = false;
         gotAbility = false;
@@ -1031,6 +1479,21 @@ function applyLevels(data) {
         fadeInOverlay();
     }
 }
+
+let volume = document.getElementById("volumeBtn");
+let volumeOn = true;
+volume.addEventListener("click", function () {
+    if (!scene) return;
+    if (volumeOn) {
+        volume.src = "assets/volumeOff.png";
+        scene.music.pause();
+    } else {
+        volume.src = "assets/volumeOn.png";
+        scene.music.play();
+    }
+    volumeOn = !volumeOn;
+});
+
 function mergeCameras() {
     // scene.cameras.main.reset();
     camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
@@ -1039,15 +1502,9 @@ function mergeCameras() {
     finalLevelActive = true;
 
     if (isPlayer1) {
-        remotePlayer = scene.physics.add
-            .sprite(0, 0, "p1")
-            .setScale(0.2)
-            .setTint(0xff0000);
+        remotePlayer = scene.physics.add.sprite(0, 0, "p1");
     } else {
-        remotePlayer = scene.physics.add
-            .sprite(0, 0, "p1")
-            .setScale(0.2)
-            .setTint(0x0000ff);
+        remotePlayer = scene.physics.add.sprite(0, 0, "p2");
     }
 
     remotePlayer.body.allowGravity = false;
@@ -1060,6 +1517,45 @@ function mergeCameras() {
 
     document.getElementById("divider").style.display = "none";
 }
+
+function activateCheckpoint(tiles, mapKey, offsetX, offsetY) {
+    // Find which checkpoint this is
+    const checkpoint = checkpoints.find((cp) =>
+        cp.tiles.every((t) => tiles.includes(t)),
+    );
+
+    if (!checkpoint || checkpoint.id === activeCheckpointId) return;
+
+    activeCheckpointId = checkpoint.id;
+
+    // Reset all checkpoints
+    checkpoints.forEach((cp) => {
+        cp.tiles.forEach((tile, i) => {
+            tile.index = CHECKPOINT_DEFAULT_TILES[i];
+        });
+    });
+
+    // Activate this one
+    tiles.forEach((tile, i) => {
+        tile.index = CHECKPOINT_ACTIVE_TILES[i];
+    });
+
+    spawnXGlobal = tiles[0].pixelX + 16 + offsetX;
+    spawnYGlobal = tiles[0].pixelY + 16 + offsetY;
+}
+
+function getCheckpointTiles(tile, layer) {
+    const x = tile.x;
+    const y = tile.y;
+
+    return [
+        layer.getTileAt(x, y), // TL
+        layer.getTileAt(x + 1, y), // TR
+        layer.getTileAt(x, y + 1), // BL
+        layer.getTileAt(x + 1, y + 1), // BR
+    ].filter(Boolean);
+}
+
 function getTouchingTiles(targetTile, layer) {
     const tileX = targetTile.x;
     const tileY = targetTile.y;
@@ -1196,7 +1692,9 @@ jumpBtn.addEventListener("pointerdown", (e) => {
         if (localPlayer.crouchActive) {
             localPlayer.setVelocityY(-270);
         } else {
-            localPlayer.setVelocityY(-400);
+            if (localPlayer.body.blocked.down || coyote) {
+                localPlayer.setVelocityY(-400);
+            }
         }
     }
 });
@@ -1241,7 +1739,9 @@ abilityBtn.addEventListener("pointercancel", () => {
 restartBtn.addEventListener("pointerdown", (e) => {
     prevent(e);
     if (scene) {
+        //deathReset();
         localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+        localPlayer.setVelocity(0, 0);
     }
 });
 
@@ -1339,9 +1839,15 @@ keydownDivs.forEach((div) => {
             keyDisplay = "↑";
         } else if (keyDisplay == "ArrowDown") {
             keyDisplay = "↓";
+        } else if (keyDisplay == " ") {
+            keyDisplay = "Space";
         }
         div.textContent = keyDisplay;
-        div.dataset.key = event.key;
+        if (keyDisplay == "Space") {
+            div.dataset.key = "Space";
+        } else {
+            div.dataset.key = event.key;
+        }
     });
 });
 
@@ -1423,15 +1929,47 @@ function setLocalStorage() {
     }
 }
 let abilityPressed = false;
+
 function preload() {
-    this.load.image("RDTiles", "assets/RDTileset.png");
+    this.load.image("RDTileset", "assets/RDTileset.png");
+    this.load.image("FTileset", "assets/FTileset.png");
+    this.load.image("ExtrasTileset", "assets/ExtrasTileset.png");
+    this.load.spritesheet("flowerSheet", "assets/jumpanim.png", {
+        frameWidth: 64,
+        frameHeight: 64,
+    });
+    this.load.spritesheet("p1", "assets/p1sheet.png", {
+        frameWidth: 48,
+        frameHeight: 48,
+    });
+    this.load.spritesheet("p2", "assets/p2sheet.png", {
+        frameWidth: 48,
+        frameHeight: 48,
+    });
+
     this.load.tilemapTiledJSON("level1", "assets/levels/RDLevel1.tmj");
     this.load.tilemapTiledJSON("level2", "assets/levels/RDLevel2.tmj");
     this.load.tilemapTiledJSON("level3", "assets/levels/RDLevel3.tmj");
     this.load.tilemapTiledJSON("level4", "assets/levels/RDLevel4.tmj");
     this.load.tilemapTiledJSON("level5", "assets/levels/RDLevel5.tmj");
     this.load.tilemapTiledJSON("level6", "assets/levels/RDLevel6.tmj");
-    this.load.image("p1", "assets/player.png");
+
+    this.load.audio("music", "assets/gameMusic.m4a");
+
+    //bgs
+    Object.entries(LEVEL_BACKGROUNDS).forEach(([level, layers]) => {
+        layers.forEach(({ key }) => {
+            const layerNum = key.match(/layer(\d+)/)[1];
+            this.load.image(
+                key,
+                `assets/backgrounds/${level}/layer${layerNum}.png`,
+            );
+            // console.log(`assets/backgrounds/${level}/layer${layerNum}.png`);
+        });
+    });
+
+    // this.load.image("p1", "assets/player.png");
+    this.load.image("drone", "assets/drone.png");
     this.gameWidth = this.sys.game.canvas.width;
     this.gameHeight = this.sys.game.canvas.height;
 }
@@ -1444,14 +1982,8 @@ function create() {
         applyLevels(pendingLevels);
         pendingLevels = null;
     }
-    const p1Sprite = this.physics.add
-        .sprite(0, 0, "p1")
-        .setScale(0.2)
-        .setTint(0x0000ff);
-    const p2Sprite = this.physics.add
-        .sprite(0, 0, "p1")
-        .setScale(0.2)
-        .setTint(0xff0000);
+    const p1Sprite = this.physics.add.sprite(0, 0, "p1");
+    const p2Sprite = this.physics.add.sprite(0, 0, "p2");
 
     camTop = this.cameras.main;
     camTop.setViewport(0, 0, this.gameWidth, this.gameHeight / 2);
@@ -1462,6 +1994,7 @@ function create() {
         this.gameWidth,
         this.gameHeight / 2,
     );
+    //0.7
     camTop.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
     camBottom.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
 
@@ -1535,20 +2068,52 @@ function create() {
     );*/
 
     this.pausePhysics = false;
+
+    this.music = this.sound.add("music");
+    this.music.setLoop(true);
+    this.music.play();
+
+    this.anims.create({
+        key: "flower",
+        frames: this.anims.generateFrameNumbers("flowerSheet", {
+            start: 0,
+            end: 7,
+        }),
+        frameRate: 5,
+        repeat: 0,
+    });
+    this.anims.create({
+        key: "p1",
+        frames: this.anims.generateFrameNumbers("p1", {
+            start: 1,
+            end: 4,
+        }),
+        frameRate: 17,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p2",
+        frames: this.anims.generateFrameNumbers("p2", {
+            start: 1,
+            end: 4,
+        }),
+        frameRate: 17,
+        repeat: -1,
+    });
+
     // this.input.keyboard.preventDefault = false;
-
-    document.getElementById("pauseBtn").addEventListener("click", function () {
-        showPause();
-        scene.pausePhysics = true;
-        setPhysicsOn(localPlayer, false);
-    });
-
-    document.getElementById("resumeBtn").addEventListener("click", function () {
-        hidePause();
-        scene.pausePhysics = false;
-        setPhysicsOn(localPlayer, true);
-    });
 }
+document.getElementById("pauseBtn").addEventListener("click", function () {
+    showPause();
+    scene.pausePhysics = true;
+    setPhysicsOn(localPlayer, false);
+});
+
+document.getElementById("resumeBtn").addEventListener("click", function () {
+    hidePause();
+    scene.pausePhysics = false;
+    setPhysicsOn(localPlayer, true);
+});
 
 function setPhysicsOn(sprite, val = true) {
     sprite.body.enable = val;
@@ -1583,9 +2148,15 @@ chatInput.addEventListener("keydown", (e) => {
     }
 });
 
+let coyoteTimeout;
+let isGoingRight = false;
+let isGoingLeft = false;
 function update(time, delta) {
     if (!localPlayer) return;
     //pause/unpause
+    updateTileAnimations(mapAnimatedTiles1, delta);
+    updateTileAnimations(mapAnimatedTiles2, delta);
+
     if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) {
         this.pausePhysics = !this.pausePhysics;
 
@@ -1635,19 +2206,30 @@ function update(time, delta) {
 
         //restart
         if (scene.restartKey.isDown) {
+            //deathReset();
             localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+            localPlayer.setVelocity(0, 0);
         }
 
         if (localPlayer.levitateActive) {
             localPlayer.body.allowGravity = false;
-            localPlayer.setVelocityY(-150);
+            localPlayer.setVelocityY(-100);
             localPlayer.setAccelerationY(0);
         } else if (localPlayer.glideActive) {
             localPlayer.body.allowGravity = true;
             localPlayer.setVelocityY(50);
         } else {
             localPlayer.body.allowGravity = true;
-            if (jump) {
+            if (localPlayer.body.blocked.down) {
+                coyote = true;
+                if (coyoteTimeout) {
+                    clearTimeout(coyoteTimeout);
+                }
+                coyoteTimeout = setTimeout(function () {
+                    coyote = false;
+                }, 150);
+            }
+            if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
                 if (localPlayer.crouchActive) {
                     localPlayer.setVelocityY(-270);
                 } else {
@@ -1662,10 +2244,32 @@ function update(time, delta) {
 
         if (this.rightKey.isDown || rightBtnActive) {
             localPlayer.setVelocityX(velocityX);
+            localPlayer.flipX = false;
+
+            isGoingRight = true;
+
+            if (isPlayer1) {
+                localPlayer.anims.play("p1", true);
+            } else {
+                localPlayer.anims.play("p2", true);
+            }
         } else if (this.leftKey.isDown || leftBtnActive) {
             localPlayer.setVelocityX(-velocityX);
+            localPlayer.flipX = true;
+
+            isGoingLeft = true;
+
+            if (isPlayer1) {
+                localPlayer.anims.play("p1", true);
+            } else {
+                localPlayer.anims.play("p2", true);
+            }
         } else {
             localPlayer.setVelocityX(0);
+            localPlayer.anims.stop();
+            localPlayer.setFrame(0);
+            isGoingLeft = false;
+            isGoingRight = false;
         }
     }
 
@@ -1679,8 +2283,8 @@ function update(time, delta) {
                 room: roomCode,
                 x: localPlayer.x,
                 y: localPlayer.y,
-                // vx: localPlayer.body.velocity.x,
-                // vy: localPlayer.body.velocity.y,
+                left: isGoingLeft,
+                right: isGoingRight,
             });
         }
         localPlayerState.x = localPlayer.x;

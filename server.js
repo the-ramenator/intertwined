@@ -47,8 +47,8 @@ const LEVELS = [
     owner: 1,
     offsetX: 0,
     offsetY: 0,
-    spawnX: 6 * ts,
-    spawnY: 11 * ts,
+    spawnX: 6 * ts, //84 * ts, //6 * ts,
+    spawnY: 11 * ts, //33 * ts, //11 * ts,
     ability: "glide",
   },
   {
@@ -59,7 +59,7 @@ const LEVELS = [
     offsetX: 0,
     offsetY: 0,
     spawnX: 4 * ts,
-    spawnY: 63 * ts,
+    spawnY: 84 * ts,
     ability: "shatter",
   },
   {
@@ -88,7 +88,7 @@ const LEVELS = [
 const ABILITY_CONFIG = {
   glide: {
     duration: Infinity,
-    cooldown: 2500,
+    cooldown: 2000,
     mode: "channel", //allow early cancel
   },
   dash: {
@@ -97,8 +97,8 @@ const ABILITY_CONFIG = {
     mode: "channel",
   },
   levitate: {
-    duration: 5500,
-    cooldown: 7000,
+    duration: 7000,
+    cooldown: 4000,
     mode: "channel",
   },
   crouch: {
@@ -107,8 +107,8 @@ const ABILITY_CONFIG = {
     mode: "channel",
   },
   shatter: {
-    duration: 500,
-    cooldown: 5000,
+    duration: 750,
+    cooldown: 3500,
     mode: "channel",
   },
   drone: {
@@ -529,6 +529,22 @@ io.on("connection", (socket) => {
       // console.log(e);
     }
   });
+  socket.on("checkpointActivated", ({ room, mapKey, checkpointId }) => {
+    const game = rooms[room];
+
+    if (!game) return;
+
+    game.activeCheckpoint = {
+      mapKey,
+      checkpointId,
+    };
+
+    socket.to(room).emit("checkpointUpdate", {
+      mapKey,
+      checkpointId,
+    });
+  });
+
   socket.on("gameWinUpdate", (data) => {
     try {
       rooms[data.room].users[socket.id].win = data.touching;

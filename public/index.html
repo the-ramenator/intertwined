@@ -1,11 +1,13 @@
 <!doctype html>
 <html>
   <head>
-    <title>Intertwined 🗣️🔥💯‼️💥🦅</title>
+    <title>Intertwined</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/nkholski/phaser-animated-tiles@master/dist/AnimatedTiles.min.js"></script>
+    
     <link rel="stylesheet" href="style.css" />
-    <link rel="icon" type="image/x-icon" href="assets/player.png" />
+    <link rel="icon" type="image/x-icon" id="favicon"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,18 +42,19 @@
           Maanas Kudrimoti<br /><br>
           Alex Easley<br>
           Karthik Vishwanatham<br>
-          Kazuki Wells
+          Aiden Farber
           <br /><br>
           Zachary Rainisch<br>
           Kazuki Wells<br>
           <br>
           Heather Miller
         </div>
-        <h2>✧·₊˚ Thanks for Playing ˚₊· ✧</h2>
+        <h2>Thanks for Playing</h2>
       </div>
     </div>
 
     <div id="pauseOverlay">
+      <img src="assets/volumeOn.png" id="volumeBtn">
       <div id="pauseOptions">
         <button id="resumeBtn"><span>Resume</span></button>
         <button id="pauseKeybindsBtn"><span>Controls</span></button>
@@ -76,8 +79,8 @@
         <button id="switchInfoBtn">Abilities</button>
         <div id="pauseLevelInfo">
           <h1>Levels</h1>
-          <h2 id="pauseInfoLevelPlayer1">Player 1</h2>
-          <h2 id="pauseInfoLevelPlayer2">Player 2</h2>
+          <h2 id="pauseInfoLevelPlayer1">Phrederick</h2>
+          <h2 id="pauseInfoLevelPlayer2">Alphred</h2>
           <div id="pauseInfoLevelDivider"></div>
           <span id="pauselevel1Info">Level 1</span>
           <span id="pauselevel2Info">Level 2</span>
@@ -88,15 +91,15 @@
         </div>
        <div id="pauseAbilityInfo">
           <h1>Abilities</h1>
-          <h2 id="pauseInfoAbilitiesPlayer1">Player 1</h2>
-          <h2 id="pauseInfoAbilitiesPlayer2">Player 2</h2>
+          <h2 id="pauseInfoAbilitiesPlayer1">Phrederick</h2>
+          <h2 id="pauseInfoAbilitiesPlayer2">Alphred</h2>
           <div id="pauseInfoAbilitiesDivider"></div>
-          <span id="pauselevel1AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Crouch</span><br>Shrink player by 1/2</span>
-          <span id="pauselevel2AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Levitate</span><br>Slowly float upwards</span>
-          <span id="pauselevel3AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Glide</span><br>Decreased falling speed</span>
-          <span id="pauselevel4AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Shatter</span><br>Break 4 blocks</span>
-          <span id="pauselevel5AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Dash</span><br>Greatly increased movement speed</span>
-          <span id="pauselevel6AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Drone</span><br>Spawn a drone under the player (max 5)</span>
+          <span id="pauselevel1AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Crouch</span><br>Shrink Phrederick by 1/2</span>
+          <span id="pauselevel2AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Levitate</span><br>Slowly float Phrederick upwards</span>
+          <span id="pauselevel3AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Glide</span><br>Decrease Phrederick's falling speed</span>
+          <span id="pauselevel4AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Shatter</span><br>Alphred breaks 4 blocks</span>
+          <span id="pauselevel5AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Dash</span><br>Alphred gains greatly increased movement speed</span>
+          <span id="pauselevel6AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Drone</span><br>Spawn a drone under Alphred (max 5)</span>
         </div>
       </div>
       <div id="pauseKeybindsCont">
@@ -172,8 +175,8 @@ class="keydownDiv div12"></div>
         <button id="leaveMatchmaking">Exit matchmaking</button>
 
         <div style="display: none" id="playerSelect">
-          <button id="player1" class="connected float4">Select Player 1</button>
-          <button id="player2" class="connected float3">Select Player 2</button>
+          <button id="player1" class="connected float4">Select Phrederick</button>
+          <button id="player2" class="connected float3">Select Alphred</button>
           <button id="clear">Clear Selection</button>
           <button id="startBtn">Start Game</button>
         </div>
@@ -200,11 +203,11 @@ class="keydownDiv div12"></div>
               <button id="infoClose">&times;</button>
               <h1>Info</h1>
               <p>
-                ◊ Some crap about what comp this was entered for<br />
-                ◊ Mechanics → ts game 2 player, 3 levels for each player<br />
-                ◊ Sumn about the goal of the game<br />
-                ◊ Maybe some other info idk<br />
-                ◊ Sumn about how abilities work fr<br />
+                ◊ Intertwined is a 2 player split screen pixel platformer<br />
+                ◊ Built for TSA's and GASTC's game design competitions<br />
+                ◊ Each ability you pick up is controlled by your partner<br />
+                ◊ Built by Neil Daniel & Maanas Kudrimoti<br />
+                ◊ Good luck!<br />
               </p>
             </div>
           </div>
