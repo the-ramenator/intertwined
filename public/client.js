@@ -1,3 +1,5 @@
+//Fix app flow: Uncaught TypeError: Cannot read properties of undefined (reading 'contains')
+
 const socket = io();
 let roomCode = null;
 let localPlayer, remotePlayer, isPlayer1;
@@ -21,7 +23,18 @@ let leftBtnActive = false,
     abilityBtnActive = false,
     restartBtnActive = false;
 
+let currentPlayer;
+
+let alreadySwitched = false;
+
 let levelInfo, abilityInfo;
+
+let world1W, world1H, world2W, world2H;
+
+let camTop;
+let camBottom;
+
+let touchedWinAlr = false;
 
 let mapAnimatedTiles1 = [];
 let mapAnimatedTiles2 = [];
@@ -43,7 +56,7 @@ let localPlayerState = {
 let droneActive = false;
 let dronePlatform, dronePlatforms;
 
-let usedJump = false;
+// let usedJump = false;
 
 let beaten = [];
 let active = [];
@@ -677,10 +690,51 @@ socket.on("notReadyToSelectPlayers", () => {
         document.getElementById("roomDataDiv").style.opacity = "1";
     }, 100);
 });
+let tipsInterval;
+const tips = [
+    "Set custom keybinds in the pause menu",
+    "You activate the other player's ability",
+    "Chat with your partner using the message icon in the top right",
+    "You can pause the game",
+    "Restart the level (with r or any key you set in the keybinds menu)",
+    "View your partner's ability in the pause menu",
+    "View the levels you've beaten in the pause menu",
+    "View the levels you're currently on in the pause menu",
+    "View the levels you haven't beaten yet in the pause menu",
+    "You can switch to the mobile layout in the pause menu",
+    "You can mute the game in the pause menu",
+    //lore
+    "Alphred lost his arms benching 225lbs",
+    "Alphred and Phrederick are both part of the revered Bigphred clan",
+    "Phrederick is the younger brother of Alphred",
+    "Alphred and Phrederick are looking for their long lost ancestor using their time machine",
+    "Alphred and Phrederick got separated in the time machine",
+    "Alphred's favorite song is Tek it",
+    "Phrederick is secretly in love with the bee from the Stone Age",
+    "Phrederick finds the drone in level 6 nice but wonders if it would tickle his feet when he activates it",
+    "Alphred is a big fan of Cyberpunk Edgerunners",
+    "Alphred spends five of his seven hours awake curling his moustache",
+    "Phrederick's moustache is like that when he wakes up",
+];
 startBtn.addEventListener("click", () => {
     socket.emit("startGame", roomCode);
+    socket.emit("startTips", roomCode);
 });
-
+socket.on("startTips", () => {
+    document.getElementById("tipsOverlay").style.display = "block";
+    document.getElementById("tipsOverlay").style.opacity = "1";
+    tipsInterval = setInterval(function () {
+        let randomTip = tips[Math.floor(Math.random() * tips.length)];
+        document.getElementById("tip").innerHTML = randomTip + "...";
+    }, 3000);
+});
+socket.on("endTips", () => {
+    clearInterval(tipsInterval);
+    document.getElementById("tipsOverlay").style.opacity = "0";
+    setTimeout(function () {
+        document.getElementById("tipsOverlay").style.display = "none";
+    }, 500);
+});
 socket.on("playerStatusUpdate", ({ disabled, room, canStart }) => {
     player1Btn.disabled = disabled.player1;
     player2Btn.disabled = disabled.player2;
@@ -858,43 +912,6 @@ function buildLevel({
     const isLocalOwner =
         (owner === 1 && isPlayer1) || (owner === 2 && !isPlayer1);
 
-    const backgrounds = [];
-    let cameraWidth = window.innerWidth;
-    let cameraHeight = window.innerHeight / 2;
-
-    let mapWidth = map.widthInPixels;
-    let mapHeight = map.heightInPixels;
-
-    //generate parallax
-    LEVEL_BACKGROUNDS[mapKey].forEach((bg, index) => {
-        const image = scene.add
-            .image(0, 0, bg.key)
-            // .setOrigin(0, 0)
-            .setScrollFactor(bg.factor)
-            .setDepth(-100 + index);
-        let scaleX =
-            (cameraWidth + (mapWidth - cameraWidth) * bg.factor) / image.width;
-        let scaleY =
-            (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
-            image.height;
-        let finalScale = Math.max(scaleX, scaleY);
-        finalScale *= 2;
-        image.setScale(finalScale);
-        // image.x = (-image.width * finalScale) / 2;
-        // image.y = (-image.height * finalScale) / 2;
-        if (isLocalOwner) {
-            camBottom.ignore(image);
-            // image.x = camTop.scrollX * (1 - bg.factor);
-            // image.y = camTop.scrollY * (1 - bg.factor);
-        } else {
-            camTop.ignore(image);
-            // image.x = camBottom.scrollX * (1 - bg.factor);
-            // image.y = camBottom.scrollY * (1 - bg.factor);
-        }
-        backgrounds.push(image);
-    });
-    scene[mapKey + "bg"] = backgrounds;
-    // console.log(scene[mapKey + "bg"]);
     map.layers.forEach((layerData) => {
         const layer = map.createLayer(
             layerData.name,
@@ -910,10 +927,10 @@ function buildLevel({
             camBottom.ignore(layer);
             myLevelAbility = ability;
             currentLevelName = mapKey;
-            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-            updateMessages(["purple"], "Current Level: " + mapName, true);
             spawnXGlobal = spawnX;
             spawnYGlobal = spawnY;
+            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+            updateMessages(["purple"], "Current Level: " + mapName, true);
         } else {
             camTop.ignore(layer);
             otherLevelAbility = ability;
@@ -969,17 +986,21 @@ function buildLevel({
                     localPlayer,
                     layer,
                     (player, tile) => {
+                        if (!tile || !tile.layer) return;
                         if (tile.index === -1) return false;
+                        //stop gamwin spamming
+                        if (touchedWinAlr) return;
+                        touchedWinAlr = true;
                         socket.emit("gameWinUpdate", {
                             room: roomCode,
                             touching: true,
                         });
-                        setTimeout(function () {
+                        /*  setTimeout(function () {
                             socket.emit("gameWinUpdate", {
                                 room: roomCode,
                                 touching: false,
                             });
-                        }, 500);
+                        }, 500);*/
                     },
                 );
                 colliders.push(overlap);
@@ -990,11 +1011,7 @@ function buildLevel({
                     layer,
                     (player, tile) => {
                         if (tile.index === -1) return false;
-                        // console.log("OVERLAP:", tile.index, tile.collides);
-                        /*console.log(tile.index);
-                        if (DEATH_TILES.includes(tile.index)) {*/
                         deathReset();
-                        // }
                     },
                 );
                 colliders.push(overlap);
@@ -1028,18 +1045,7 @@ function buildLevel({
                     },
                 );
                 colliders.push(overlap);
-            } /* else if (layerData.name === "Jump") {
-                //layer.setVisible(false);
-                const overlap = scene.physics.add.overlap(
-                    localPlayer,
-                    layer,
-                    (player, tile) => {
-                        if (tile.index === -1) return false;
-                        localPlayer.setVelocityY(-600);
-                    },
-                );
-                colliders.push(overlap);
-            } */ else if (layerData.name === "BB") {
+            } else if (layerData.name === "BB") {
                 layer.setCollisionByProperty({ collides: true });
                 layer.setCollisionByExclusion([-1]);
                 const overlap = scene.physics.add.collider(
@@ -1097,6 +1103,7 @@ function buildLevel({
             }
         }
     });
+
     let jumpGroup;
     if (mapKey === "level3") {
         const jumpLayer = map.getObjectLayer("ObjJump");
@@ -1111,28 +1118,38 @@ function buildLevel({
                 y + offsetY,
                 "flowerSheet",
             );
+            block.usedJump = false;
+
+            // camBottom.ignore(block); //since it's only p1 anyways
 
             block.setSize(obj.width, obj.height);
         });
         if (isPlayer1) {
-            scene.physics.add.overlap(
-                localPlayer,
-                jumpGroup,
-                (player, tile) => {
-                    if (!usedJump) {
-                        tile.anims.play("flower", true);
-                        localPlayer.setVelocityY(-600);
-                        usedJump = true;
+            //only happens on p1 anyways
+            scene.physics.add.overlap(localPlayer, jumpGroup, (player, obj) => {
+                if (!obj.usedJump) {
+                    obj.anims.play("flower", true);
+                    localPlayer.setVelocityY(-600);
+                    obj.usedJump = true;
+                    socket.emit("jumpAnimUpdate", {
+                        room: roomCode,
+                        object: obj,
+                        reset: false,
+                    });
 
+                    setTimeout(() => {
+                        obj.anims.playReverse("flower");
+                        socket.emit("jumpAnimUpdate", {
+                            room: roomCode,
+                            object: obj,
+                            reset: true,
+                        });
                         setTimeout(() => {
-                            tile.anims.playReverse("flower");
-                            setTimeout(() => {
-                                usedJump = false;
-                            }, 1600);
-                        }, 3000);
-                    }
-                },
-            );
+                            obj.usedJump = false;
+                        }, 1600);
+                    }, 3000);
+                }
+            });
             camBottom.ignore(jumpGroup.getChildren());
         } else {
             camTop.ignore(jumpGroup.getChildren());
@@ -1172,6 +1189,7 @@ function buildLevel({
             layers,
             colliders,
             key: mapKey,
+            owner: owner,
             jumpGroup,
         });
     } else {
@@ -1179,10 +1197,12 @@ function buildLevel({
             map,
             layers,
             colliders,
+            owner: owner,
             key: mapKey,
         });
     }
     fadeOutOverlay();
+    socket.emit("endTips", roomCode);
 
     return [map.widthInPixels, map.heightInPixels];
 }
@@ -1260,12 +1280,22 @@ socket.on("droneRecharge", (data) => {
     }
 });
 
+socket.on("jumpAnimUpdate", (data) => {
+    if (!scene) return;
+    if (data.reset) {
+        data.object.anims.playReverse("flower");
+    } else {
+        data.object.anims.play("flower", true);
+    }
+});
+
 let wonAlready;
 socket.on("gameWin", (msg) => {
     if (wonAlready) return;
     wonAlready = true;
     updateMessages(["green"], "Level Cleared", true);
     updateMessages(["green"], "Level Cleared", false);
+
     clearInterval(levelTimerInterval);
     socket.emit("setTimes", {
         time: levelTimer,
@@ -1285,11 +1315,135 @@ socket.on("gameWin", (msg) => {
         updateMessages([], "", true);
         updateMessages([], "", false);
         socket.emit("requestNextLevel", roomCode);
+        alreadySwitched = false;
+        // console.log("game win, alr switched:" + alreadySwitched);
     }, 2000);
 });
-let camTop;
-let camBottom;
-function generateLevels(nextLevel1, nextLevel2) {
+
+socket.on("switchCams", (data) => {
+    // console.log("alr switch from switchcams: " + alreadySwitched);
+    if (alreadySwitched) return;
+    alreadySwitched = true;
+    currentPlayer = data.currentPlayer;
+    // console.log(currentPlayer);
+    // console.log("switchng cams");
+    resizeCameras(true);
+});
+
+function resizeCameras(isSwitching) {
+    if (!scene || !camTop || !camBottom || !localPlayer) return;
+    activeLevels.forEach((level) => {
+        let oldPlayer = currentPlayer == 1 ? 2 : 1;
+        if (level.owner == oldPlayer && isSwitching) {
+            // console.log("level being deleted:");
+            // console.log(level);
+            if (scene[level.key + "bg"]) {
+                scene[level.key + "bg"].forEach((bg) => bg.destroy());
+                scene[level.key + "bg"] = [];
+            }
+            if (level.jumpGroup) {
+                level.jumpGroup.clear(true, true);
+                level.jumpGroup.destroy(true);
+            }
+
+            level.colliders.forEach((c) => {
+                scene.physics.world.removeCollider(c);
+            });
+
+            level.layers.forEach((layer) => {
+                layer.destroy();
+            });
+
+            level.map.destroy();
+        } else {
+            //just resizing bgs
+            if (scene[level.key + "bg"]) {
+                scene[level.key + "bg"].forEach((bg) => bg.destroy());
+                scene[level.key + "bg"] = [];
+            }
+        }
+    });
+
+    const backgrounds = [];
+    let cameraWidth = window.innerWidth;
+    let cameraHeight = window.innerHeight;
+
+    let mapWidth; //map.widthInPixels;
+    let mapHeight; //map.heightInPixels;
+    // console.log("camtop vis:" + camTop.visible);
+    // console.log("cambottom vis:" + camBottom.visible);
+
+    if (currentPlayer == 1) {
+        scene.physics.world.setBounds(0, 0, world1W, world1H);
+        camTop.setBounds(0, 0, world1W, world1H);
+        camBottom.setBounds(0, 0, world1W, world1H);
+        mapWidth = world1W;
+        mapHeight = world1H;
+    } else if (currentPlayer == 2) {
+        scene.physics.world.setBounds(0, 0, world2W, world2H);
+        camTop.setBounds(0, 0, world2W, world2H);
+        camBottom.setBounds(0, 0, world2W, world2H);
+        mapWidth = world2W;
+        mapHeight = world2H;
+    }
+
+    if (
+        (isPlayer1 && currentPlayer == 1) ||
+        (!isPlayer1 && currentPlayer == 2)
+    ) {
+        camBottom.setViewport(0, 0, 0, 0);
+        camBottom.setVisible(false);
+        camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
+        camTop.setVisible(true);
+
+        //only activate if you're the main player
+        // console.log(currentLevelName);
+        LEVEL_BACKGROUNDS[currentLevelName].forEach((bg, index) => {
+            const image = scene.add
+                .image(0, 0, bg.key)
+                .setScrollFactor(bg.factor)
+                .setDepth(-100 + index);
+            let scaleX =
+                (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
+                image.width;
+            let scaleY =
+                (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
+                image.height;
+            let finalScale = Math.max(scaleX, scaleY);
+            finalScale *= 2;
+            image.setScale(finalScale);
+            camBottom.ignore(image);
+            backgrounds.push(image);
+        });
+        scene[currentLevelName + "bg"] = backgrounds;
+    } else {
+        camTop.setViewport(0, 0, 0, 0);
+        camTop.setVisible(false);
+        camBottom.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
+        camBottom.setVisible(true);
+
+        //only activate if you're the side player
+        LEVEL_BACKGROUNDS[otherLevelName].forEach((bg, index) => {
+            const image = scene.add
+                .image(0, 0, bg.key)
+                .setScrollFactor(bg.factor)
+                .setDepth(-100 + index);
+            let scaleX =
+                (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
+                image.width;
+            let scaleY =
+                (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
+                image.height;
+            let finalScale = Math.max(scaleX, scaleY);
+            finalScale *= 2;
+            image.setScale(finalScale);
+            camTop.ignore(image);
+            backgrounds.push(image);
+        });
+        scene[otherLevelName + "bg"] = backgrounds;
+    }
+}
+function generateLevels(nextLevel1, nextLevel2, currentPlayerData) {
     const map1 = scene.make.tilemap({ key: nextLevel1.mapKey });
     const tilesets1 = map1.tilesets.map((ts) =>
         map1.addTilesetImage(ts.name, ts.name),
@@ -1301,8 +1455,9 @@ function generateLevels(nextLevel1, nextLevel2) {
     );
     localPlayer.setPosition(256, 256);
     remotePlayer.setPosition(256, 256);
+    currentPlayer = currentPlayerData;
 
-    let [world1W, world1H] = buildLevel({
+    [world1W, world1H] = buildLevel({
         map: map1,
         mapKey: nextLevel1.mapKey,
         tilesets: tilesets1,
@@ -1318,7 +1473,7 @@ function generateLevels(nextLevel1, nextLevel2) {
         ability: nextLevel1.ability,
     });
 
-    let [world2W, world2H] = buildLevel({
+    [world2W, world2H] = buildLevel({
         map: map2,
         mapKey: nextLevel2.mapKey,
         tilesets: tilesets2,
@@ -1333,13 +1488,6 @@ function generateLevels(nextLevel1, nextLevel2) {
         camBottom,
         ability: nextLevel2.ability,
     });
-    let worldH = Math.max(world1H, world2H);
-    let worldW = Math.max(world1W, world2W);
-    scene.physics.world.setBounds(0, 0, worldW, worldH);
-
-    camTop.setBounds(0, 0, worldW, worldH);
-    camBottom.setBounds(0, 0, worldW, worldH);
-
     maps[nextLevel1.mapKey] = map1;
     maps[nextLevel2.mapKey] = map2;
 
@@ -1354,6 +1502,7 @@ function generateLevels(nextLevel1, nextLevel2) {
         activeLevels[1].layers,
         animatedTiles2,
     );
+    resizeCameras(false);
 }
 let remoteTargetX, remoteTargetY;
 socket.on("playerUpdate", (data) => {
@@ -1390,8 +1539,23 @@ socket.on("generateLevels", (data) => {
 });
 
 function applyLevels(data) {
-    fadeInOverlay();
+    // fadeInOverlay();
+    wonAlready = false;
+    gotAbility = false;
+    // usedJump = false;
+
+    checkpoints.length = 0;
+    activeCheckpointId = null;
+
+    mapAnimatedTiles1.length = 0;
+    mapAnimatedTiles2.length = 0;
+
+    spawnXGlobal = null;
+    spawnYGlobal = null;
+
     clearAllLevels(scene);
+    // console.log(data.nextLevel2);
+    // console.log(data.nextLevel1);
     if (data.nextLevel1 == false || data.nextLevel2 == false) {
         if (active.length != 0) {
             for (const key in active) {
@@ -1400,7 +1564,7 @@ function applyLevels(data) {
             active = [];
         }
         updateInfo();
-        setTimeout(fadeOutOverlay, 1000);
+        // setTimeout(fadeOutOverlay, 1000);
         //run final level
         // mergeCameras();
 
@@ -1456,7 +1620,6 @@ function applyLevels(data) {
         if (active.length != 0) {
             for (const key in active) {
                 beaten.push(active[key]);
-                // active.splice(key, 1);
             }
             active = [];
         }
@@ -1475,7 +1638,11 @@ function applyLevels(data) {
         active.push(data.nextLevel1);
         active.push(data.nextLevel2);
         updateInfo();
-        generateLevels(data.nextLevel1, data.nextLevel2);
+        // console.log("grah: " + data.currentPlayer);
+        generateLevels(data.nextLevel1, data.nextLevel2, data.currentPlayer);
+        alreadySwitched = false;
+        touchedWinAlr = false;
+        // console.log("alr switched from gen levels: " + alreadySwitched);
         fadeInOverlay();
     }
 }
@@ -1487,9 +1654,11 @@ volume.addEventListener("click", function () {
     if (volumeOn) {
         volume.src = "assets/volumeOff.png";
         scene.music.pause();
+        localStorage.setItem("soundOn", false);
     } else {
         volume.src = "assets/volumeOn.png";
         scene.music.play();
+        localStorage.setItem("soundOn", true);
     }
     volumeOn = !volumeOn;
 });
@@ -1986,14 +2155,9 @@ function create() {
     const p2Sprite = this.physics.add.sprite(0, 0, "p2");
 
     camTop = this.cameras.main;
-    camTop.setViewport(0, 0, this.gameWidth, this.gameHeight / 2);
+    camTop.setViewport(0, 0, 50, 50);
 
-    camBottom = this.cameras.add(
-        0,
-        this.gameHeight / 2,
-        this.gameWidth,
-        this.gameHeight / 2,
-    );
+    camBottom = this.cameras.add(0, 50, 50, 50);
     //0.7
     camTop.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
     camBottom.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
@@ -2071,8 +2235,14 @@ function create() {
 
     this.music = this.sound.add("music");
     this.music.setLoop(true);
-    this.music.play();
-
+    if (localStorage.getItem("soundOn") == null) {
+        localStorage.setItem("soundOn", true);
+    }
+    if (localStorage.getItem("soundOn") == true) {
+        this.music.play();
+    } else {
+        this.music.pause();
+    }
     this.anims.create({
         key: "flower",
         frames: this.anims.generateFrameNumbers("flowerSheet", {
@@ -2203,76 +2373,83 @@ function update(time, delta) {
                 }
             }
         }
-
-        //restart
-        if (scene.restartKey.isDown) {
-            //deathReset();
-            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-            localPlayer.setVelocity(0, 0);
-        }
-
-        if (localPlayer.levitateActive) {
-            localPlayer.body.allowGravity = false;
-            localPlayer.setVelocityY(-100);
-            localPlayer.setAccelerationY(0);
-        } else if (localPlayer.glideActive) {
-            localPlayer.body.allowGravity = true;
-            localPlayer.setVelocityY(50);
-        } else {
-            localPlayer.body.allowGravity = true;
-            if (localPlayer.body.blocked.down) {
-                coyote = true;
-                if (coyoteTimeout) {
-                    clearTimeout(coyoteTimeout);
-                }
-                coyoteTimeout = setTimeout(function () {
-                    coyote = false;
-                }, 150);
+        //check if you are the main or side player
+        if (
+            (currentPlayer == 1 && isPlayer1) ||
+            (currentPlayer == 2 && !isPlayer1)
+        ) {
+            //restart
+            if (scene.restartKey.isDown) {
+                //deathReset();
+                localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+                localPlayer.setVelocity(0, 0);
             }
-            if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
-                if (localPlayer.crouchActive) {
-                    localPlayer.setVelocityY(-270);
+
+            if (localPlayer.levitateActive) {
+                localPlayer.body.allowGravity = false;
+                localPlayer.setVelocityY(-100);
+                localPlayer.setAccelerationY(0);
+            } else if (localPlayer.glideActive) {
+                localPlayer.body.allowGravity = true;
+                localPlayer.setVelocityY(50);
+            } else {
+                localPlayer.body.allowGravity = true;
+                if (localPlayer.body.blocked.down) {
+                    coyote = true;
+                    if (coyoteTimeout) {
+                        clearTimeout(coyoteTimeout);
+                    }
+                    coyoteTimeout = setTimeout(function () {
+                        coyote = false;
+                    }, 150);
+                }
+                if (
+                    (jump && localPlayer.body.blocked.down) ||
+                    (jump && coyote)
+                ) {
+                    if (localPlayer.crouchActive) {
+                        localPlayer.setVelocityY(-270);
+                    } else {
+                        localPlayer.setVelocityY(-400);
+                    }
+                }
+            }
+            let velocityX = 360;
+            if (localPlayer.dashActive) {
+                velocityX = 1500;
+            }
+
+            if (this.rightKey.isDown || rightBtnActive) {
+                localPlayer.setVelocityX(velocityX);
+                localPlayer.flipX = false;
+
+                isGoingRight = true;
+
+                if (isPlayer1) {
+                    localPlayer.anims.play("p1", true);
                 } else {
-                    localPlayer.setVelocityY(-400);
+                    localPlayer.anims.play("p2", true);
                 }
-            }
-        }
-        let velocityX = 360;
-        if (localPlayer.dashActive) {
-            velocityX = 1500;
-        }
+            } else if (this.leftKey.isDown || leftBtnActive) {
+                localPlayer.setVelocityX(-velocityX);
+                localPlayer.flipX = true;
 
-        if (this.rightKey.isDown || rightBtnActive) {
-            localPlayer.setVelocityX(velocityX);
-            localPlayer.flipX = false;
+                isGoingLeft = true;
 
-            isGoingRight = true;
-
-            if (isPlayer1) {
-                localPlayer.anims.play("p1", true);
+                if (isPlayer1) {
+                    localPlayer.anims.play("p1", true);
+                } else {
+                    localPlayer.anims.play("p2", true);
+                }
             } else {
-                localPlayer.anims.play("p2", true);
+                localPlayer.setVelocityX(0);
+                localPlayer.anims.stop();
+                localPlayer.setFrame(0);
+                isGoingLeft = false;
+                isGoingRight = false;
             }
-        } else if (this.leftKey.isDown || leftBtnActive) {
-            localPlayer.setVelocityX(-velocityX);
-            localPlayer.flipX = true;
-
-            isGoingLeft = true;
-
-            if (isPlayer1) {
-                localPlayer.anims.play("p1", true);
-            } else {
-                localPlayer.anims.play("p2", true);
-            }
-        } else {
-            localPlayer.setVelocityX(0);
-            localPlayer.anims.stop();
-            localPlayer.setFrame(0);
-            isGoingLeft = false;
-            isGoingRight = false;
         }
     }
-
     if (time - this.lastSend > 5) {
         if (
             localPlayer.x != localPlayerState.x ||
@@ -2316,7 +2493,6 @@ window.addEventListener("resize", function () {
     if (finalLevelActive) {
         camTop.setViewport(0, 0, width, height);
     } else {
-        camTop.setViewport(0, 0, width, height / 2);
-        camBottom.setViewport(0, height / 2, width, height / 2);
+        resizeCameras(false);
     }
 });

@@ -4,7 +4,6 @@
     <title>Intertwined</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/nkholski/phaser-animated-tiles@master/dist/AnimatedTiles.min.js"></script>
     
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" type="image/x-icon" id="favicon"/>
@@ -16,6 +15,15 @@
       href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Handjet:wght,ELGR,ELSH@100..900,1..2,2&family=Jersey+10&family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
+
+    <meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta property="og:title" content="Intertwined">
+    <meta property="og:description" content="2 player split screen pixel platformer made by Neil Daniel & Maanas Kudrimoti">
+    <meta property="og:image" content="https://raw.githubusercontent.com/the-ramenator/intertwined/refs/heads/master/public/assets/p2.png">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   </head>
   <body>
     <div id="particles"></div>
@@ -192,7 +200,7 @@ class="keydownDiv div12"></div>
             placeholder="Enter room code"
             maxlength="6"
           />
-          <a href="https://the-ramenator.github.io"><img src="https://the-ramenator.github.io/assets/homepage/favicon.png" class="logo"></a>
+          <a href="https://the-ramenator.github.io"><img src="assets/the-ramenator.png" class="logo"></a>
           <button id="joinToggle" class="float4">Join Room</button>
           <button id="matchmakingBtn" class="float5">Matchmaking</button>
           <!-- Modals Go here type shi -->
@@ -226,6 +234,9 @@ class="keydownDiv div12"></div>
       ></pre>-->
     </div>
     <div id="gameOverlay"></div> <!-- Use this to fade between levels fr -->
+    <div id="tipsOverlay">
+      <span id="tip"></span>
+    </div>
     <div style="display: none" id="gameContainer">
       <div id="chatCont">
         <div id="chatHeader">Chat<span id="chatClose" style="float: right; cursor: pointer;font-size: 150%">&times;</span></div>
@@ -241,7 +252,7 @@ class="keydownDiv div12"></div>
         </div>
       </div>
 
-      <div id="divider"></div>
+      <!-- <div id="divider"></div> -->
       <span id="localStatus"></span>
       <span id="remoteStatus"></span>
       <span id="timer"></span>

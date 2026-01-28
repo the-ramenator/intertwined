@@ -974,14 +974,14 @@ grid-row-gap: 1em;
   left: 0.5em;
   font-family: var(--jersey);
   font-size: 2em;
-  /* background: rgba(0,0,0,0.5); */
+  background: rgba(0,0,0,0.5);
   /* border-radius: 16px; */
 }
 #localStatus{
   top: 0.5em;
 }
 #remoteStatus{
-  top: calc(50% + 0.5em);
+  top: 0.5em;
 }
 .green{
   text-shadow: 0 0 10px var(--green);
@@ -1144,7 +1144,7 @@ grid-row-gap: 1em;
   text-align: left;
 }
 
-#gameOverlay{
+#gameOverlay, #tipsOverlay{
   position: absolute;
   top: 0;
   left: 0;
@@ -1154,6 +1154,16 @@ grid-row-gap: 1em;
   z-index: 100;
   opacity: 0;
   display: none;
+}
+#tip{
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  margin: 2em;
+  transform: translate(-50%,-50%);
+  font-size: 3em;
+  color: white;
+  font-family: var(--jersey)
 }
 #leftBtn, #rightBtn, #abilityBtn, #jumpBtn, #restartBtn{
   position: absolute;

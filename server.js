@@ -150,6 +150,7 @@ function createRoom(id) {
       1: null,
       2: null,
     },
+    currentPlayer: Math.floor(Math.random() * 2) + 1,
     abilityState: {
       1: { active: false, cooldownUntil: 0, timeout: null },
       2: { active: false, cooldownUntil: 0, timeout: null, droneUsage: 0 },
@@ -256,7 +257,7 @@ io.on("connection", (socket) => {
     try {
       io.to(data.room).emit("chatMessage", data);
     } catch (e) {
-      console.log(e);
+      // console.log(e);
     }
   });
   function updatePlayerStatus(roomCode) {
@@ -274,7 +275,16 @@ io.on("connection", (socket) => {
       canStart,
     });
   }
-
+  socket.on("startTips", (roomCode) => {
+    try {
+      io.to(roomCode).emit("startTips");
+    } catch (e) {}
+  });
+  socket.on("endTips", (roomCode) => {
+    try {
+      io.to(roomCode).emit("endTips");
+    } catch (e) {}
+  });
   socket.on("startGame", (roomCode) => {
     try {
       rooms[roomCode].started = true;
@@ -361,9 +371,15 @@ io.on("connection", (socket) => {
           room.users[socket.id].abilityGained = false;
           otherPlayer.abilityGained = false;
 
+          //reset win
+          // room.users[socket.id].win = false;
+          // otherPlayer.win = false;
+          // console.log(room.currentPlayer);
+          let currentPlayer = room.currentPlayer;
           io.to(roomCode).emit("generateLevels", {
             nextLevel1,
             nextLevel2,
+            currentPlayer,
           });
         } else {
           io.to(roomCode).emit("generateLevels", {
@@ -529,22 +545,13 @@ io.on("connection", (socket) => {
       // console.log(e);
     }
   });
-  socket.on("checkpointActivated", ({ room, mapKey, checkpointId }) => {
-    const game = rooms[room];
-
-    if (!game) return;
-
-    game.activeCheckpoint = {
-      mapKey,
-      checkpointId,
-    };
-
-    socket.to(room).emit("checkpointUpdate", {
-      mapKey,
-      checkpointId,
-    });
+  socket.on("jumpAnimUpdate", (data) => {
+    try {
+      socket.to(data.room).emit("jumpAnimUpdate", data);
+    } catch (e) {
+      // console.log(e);
+    }
   });
-
   socket.on("gameWinUpdate", (data) => {
     try {
       rooms[data.room].users[socket.id].win = data.touching;
@@ -552,10 +559,20 @@ io.on("connection", (socket) => {
       const playerIds = Object.keys(rooms[data.room].users);
       if (playerIds.length !== 2) return; // Only win with 2 players
 
-      const p1 = rooms[data.room].users[playerIds[0]].win;
-      const p2 = rooms[data.room].users[playerIds[1]].win;
-      if (p1 && p2) {
+      let p1 = rooms[data.room].users[playerIds[0]].win;
+      let p2 = rooms[data.room].users[playerIds[1]].win;
+      if (p1 == true && p2 == true) {
+        rooms[data.room].users[playerIds[0]].win = false;
+        rooms[data.room].users[playerIds[1]].win = false;
+        rooms[data.room].currentPlayer =
+          rooms[data.room].currentPlayer === 1 ? 2 : 1;
         io.to(data.room).emit("gameWin", "Both Win!");
+      } else {
+        rooms[data.room].currentPlayer =
+          rooms[data.room].currentPlayer === 1 ? 2 : 1;
+        io.to(data.room).emit("switchCams", {
+          currentPlayer: rooms[data.room].currentPlayer,
+        });
       }
     } catch (e) {
       // console.log(e);
@@ -600,6 +617,11 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     try {
+      const idx = awaitingMatchmaking.indexOf(socket.id);
+      if (idx > -1) {
+        awaitingMatchmaking.splice(idx, 1);
+      }
+
       for (const roomCode in rooms) {
         if (rooms[roomCode].users[socket.id]) {
           delete rooms[roomCode].users[socket.id];
