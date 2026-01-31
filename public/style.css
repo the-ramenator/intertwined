@@ -1160,10 +1160,11 @@ grid-row-gap: 1em;
   bottom: 0;
   right: 0;
   margin: 2em;
-  transform: translate(-50%,-50%);
-  font-size: 3em;
   color: white;
-  font-family: var(--jersey)
+  font-family: var(--jersey);
+  font-size: 1.5em;
+  width: 50%;
+  text-align: right;
 }
 #leftBtn, #rightBtn, #abilityBtn, #jumpBtn, #restartBtn{
   position: absolute;

@@ -107,8 +107,8 @@ const ABILITY_CONFIG = {
     mode: "channel",
   },
   shatter: {
-    duration: 750,
-    cooldown: 3500,
+    duration: 950,
+    cooldown: 2500,
     mode: "channel",
   },
   drone: {
@@ -550,6 +550,20 @@ io.on("connection", (socket) => {
       socket.to(data.room).emit("jumpAnimUpdate", data);
     } catch (e) {
       // console.log(e);
+    }
+  });
+  socket.on("checkpointUpdate", (data) => {
+    try {
+      socket.broadcast.to(data.room).emit("checkpointUpdate", data);
+    } catch (e) {
+      // console.log(e);
+    }
+  });
+  socket.on("deathReset", (data) => {
+    try {
+      socket.to(data.room).emit("deathReset", data);
+    } catch (e) {
+      console.log(e);
     }
   });
   socket.on("gameWinUpdate", (data) => {

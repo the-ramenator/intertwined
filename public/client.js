@@ -1,14 +1,13 @@
-//Fix app flow: Uncaught TypeError: Cannot read properties of undefined (reading 'contains')
-
 const socket = io();
 let roomCode = null;
 let localPlayer, remotePlayer, isPlayer1;
 let maps = {};
 let activeLevels = [];
 let scene;
+let currentMapKey1, currentMapKey2, currentMap;
 let myLevelAbility = null;
 let otherLevelAbility = null;
-let spawnXGlobal, spawnYGlobal; //update this for checkpoints
+let spawnXGlobal, spawnYGlobal, spawnXp1, spawnYp1, spawnXp2, spawnYp2; //update this for checkpoints --> update for each player
 let currentLevelName, otherLevelName;
 let mainLayerXOffset, mainLayerYOffset;
 
@@ -39,14 +38,9 @@ let touchedWinAlr = false;
 let mapAnimatedTiles1 = [];
 let mapAnimatedTiles2 = [];
 
-const CHECKPOINT_DEFAULT_TILES = [345, 346, 393, 394];
-const CHECKPOINT_ACTIVE_TILES = [347, 348, 395, 396];
 const DEATH_TILES = [
     19, 20, 27, 28, 818, 819, 770, 771 /*, 756, 708, 660, 612*/,
 ];
-
-let checkpoints = [];
-let activeCheckpointId = null;
 
 let localPlayerState = {
     x: 0,
@@ -188,15 +182,6 @@ function updateMessages(classes, msg, isLocal, duration = false) {
     el.classList.add(...classes);
     el.innerHTML = msg;
     if (duration) {
-        /*let counter = duration / 1000;
-        activeInterval = setInterval(() => {
-            el.innerHTML = msg + ": " + counter.toFixed(1) + "s";
-            counter -= 0.1;
-        }, 100);
-        setTimeout(() => {
-            clearInterval(activeInterval);
-            updateMessages([], "", isLocal);
-        }, duration);*/
         const endTime = Date.now() + duration;
 
         activeInterval = setInterval(() => {
@@ -221,6 +206,7 @@ const abilities = {
         },
         deactivate({ abilityOwner }) {
             getPlayerByOwner(abilityOwner).setScale(1);
+
             getPlayerByOwner(abilityOwner).crouchActive = false;
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
@@ -236,9 +222,13 @@ const abilities = {
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             updateMessages(["green"], "Levitate Active", isLocal, duration);
+            getPlayerByOwner(abilityOwner).anims.play("p1levitate", true);
         },
         deactivate({ abilityOwner }) {
             getPlayerByOwner(abilityOwner).levitateActive = false;
+            getPlayerByOwner(abilityOwner).anims.stop();
+            getPlayerByOwner(abilityOwner).setFrame(0);
+
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             if (activeInterval) {
@@ -253,9 +243,25 @@ const abilities = {
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             updateMessages(["green"], "Glide Active", isLocal, duration);
+            playAbilityChain(
+                getPlayerByOwner(abilityOwner),
+                "p1glideOpen",
+                "p1glideActive",
+            );
+            getPlayerByOwner(abilityOwner).setScale(1.8);
+            getPlayerByOwner(abilityOwner).body.setSize(24, 24);
+            getPlayerByOwner(abilityOwner).setOffset(12, 24);
+            // getPlayerByOwner(abilityOwner).body.refreshBody();
         },
         deactivate({ abilityOwner }) {
             getPlayerByOwner(abilityOwner).glideActive = false;
+            getPlayerByOwner(abilityOwner).anims.stop();
+            getPlayerByOwner(abilityOwner).setFrame(0);
+
+            getPlayerByOwner(abilityOwner).setScale(1);
+            getPlayerByOwner(abilityOwner).body.setSize(48, 48);
+            // getPlayerByOwner(abilityOwner).body.refreshBody();
+
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             if (activeInterval) {
@@ -267,13 +273,18 @@ const abilities = {
     //p2 objs
     shatter: {
         activate({ abilityOwner, duration }) {
-            getPlayerByOwner(abilityOwner).breakActive = true;
+            getPlayerByOwner(abilityOwner).shatterActive = true;
+            getPlayerByOwner(abilityOwner).anims.play("p2shatter", true);
+
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             updateMessages(["green"], "Shatter Active", isLocal, duration);
         },
         deactivate({ abilityOwner }) {
-            getPlayerByOwner(abilityOwner).breakActive = false;
+            getPlayerByOwner(abilityOwner).shatterActive = false;
+            getPlayerByOwner(abilityOwner).anims.stop();
+            getPlayerByOwner(abilityOwner).setFrame(0);
+
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             if (activeInterval) {
@@ -285,12 +296,29 @@ const abilities = {
     dash: {
         activate({ abilityOwner, duration }) {
             getPlayerByOwner(abilityOwner).dashActive = true;
+            playAbilityChain(
+                getPlayerByOwner(abilityOwner),
+                "p2dashOpen",
+                "p2dashActive",
+            );
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
+
+            getPlayerByOwner(abilityOwner).setScale(1.8);
+            getPlayerByOwner(abilityOwner).body.setSize(24, 24);
+            getPlayerByOwner(abilityOwner).setOffset(12, 16);
+
             updateMessages(["green"], "Dash Active", isLocal, duration);
         },
         deactivate({ abilityOwner }) {
             getPlayerByOwner(abilityOwner).dashActive = false;
+
+            getPlayerByOwner(abilityOwner).anims.stop();
+            getPlayerByOwner(abilityOwner).setFrame(0);
+
+            getPlayerByOwner(abilityOwner).setScale(1);
+            getPlayerByOwner(abilityOwner).body.setSize(48, 48);
+
             let isPlayerCheck = isPlayer1 ? 1 : 2;
             let isLocal = isPlayerCheck == abilityOwner ? true : false;
             if (activeInterval) {
@@ -805,10 +833,19 @@ socket.on("startGame", (roomData) => {
     game = new Phaser.Game(config);
 });
 
+socket.on("deathReset", (data) => {
+    //only for remote player
+    if (!scene) return;
+    remotePlayer.setTint(0xff0000);
+    setTimeout(function () {
+        remotePlayer.clearTint();
+    }, 1000);
+});
 function deathReset() {
     localPlayer.setTint(0xff0000);
     scene.pausePhysics = true;
     setPhysicsOn(localPlayer, false);
+    socket.emit("deathReset", { room: roomCode });
 
     setTimeout(function () {
         localPlayer.clearTint();
@@ -892,6 +929,22 @@ function updateTileAnimations(mapAnimatedTiles, delta) {
         }
     });
 }
+function activateCheckpointLocal(group, activeCheckpoint, mapKey, isLocal) {
+    group.getChildren().forEach((cp) => {
+        cp.active = false;
+        cp.setFrame(0);
+    });
+
+    activeCheckpoint.active = true;
+    activeCheckpoint.setFrame(1);
+
+    // update respawn only if this is the current map
+    if (mapKey === currentMap && isLocal) {
+        spawnXGlobal = activeCheckpoint.x;
+        spawnYGlobal = activeCheckpoint.y;
+    }
+}
+
 function buildLevel({
     map,
     mapKey,
@@ -927,15 +980,15 @@ function buildLevel({
             camBottom.ignore(layer);
             myLevelAbility = ability;
             currentLevelName = mapKey;
-            spawnXGlobal = spawnX;
-            spawnYGlobal = spawnY;
-            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-            updateMessages(["purple"], "Current Level: " + mapName, true);
+            // spawnXGlobal = spawnX;
+            // spawnYGlobal = spawnY;
+            // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+            // updateMessages(["purple"], "Current Level: " + mapName, true);
         } else {
             camTop.ignore(layer);
             otherLevelAbility = ability;
             otherLevelName = mapKey;
-            updateMessages(["purple"], "Current Level: " + mapName, false);
+            // updateMessages(["purple"], "Current Level: " + mapName, false);
         }
 
         // if (!isLocalOwner) return;
@@ -948,29 +1001,11 @@ function buildLevel({
         if (layerData.name == "Deco") {
             layer.setVisible(true);
             layer.setDepth(-10);
-        } else if (
-            layerData.name == "Deco 2" ||
-            layerData.name == "BB" ||
-            layerData.name == "Checkpoint"
-        ) {
+        } else if (layerData.name == "Deco 2" || layerData.name == "BB") {
             layer.setVisible(true);
             layer.setDepth(-9);
         } else {
             layer.setVisible(false);
-        }
-        if (layerData.name === "Checkpoint" && isLocalOwner) {
-            layer.forEachTile((tile) => {
-                if (tile.index === -1) return;
-
-                // Only register top-left tile
-                const tiles = getCheckpointTiles(tile, layer);
-                if (tiles.length !== 4) return;
-
-                checkpoints.push({
-                    id: checkpoints.length,
-                    tiles,
-                });
-            });
         }
 
         if (isLocalOwner) {
@@ -1085,31 +1120,71 @@ function buildLevel({
                     },
                 );
                 colliders.push(overlap);
-            } else if (layerData.name === "Checkpoint") {
-                const overlap = scene.physics.add.overlap(
-                    localPlayer,
-                    layer,
-                    (player, tile) => {
-                        if (tile.index === -1) return;
-
-                        const tiles = getCheckpointTiles(tile, layer);
-                        if (tiles.length !== 4) return;
-
-                        activateCheckpoint(tiles, mapKey, offsetX, offsetY);
-                    },
-                );
-
-                colliders.push(overlap);
             }
         }
     });
 
     let jumpGroup;
+    let checkpointOverlap;
+    let deathGroup;
+
+    const checkpointsLayer = map.getObjectLayer("ObjCheck");
+    if (!checkpointsLayer) return;
+
+    const checkpointsGroup = scene.physics.add.staticGroup();
+
+    checkpointsLayer.objects.forEach((obj, index) => {
+        const x = obj.x + obj.width / 2;
+        const y = obj.y - obj.height / 2;
+
+        const block = checkpointsGroup.create(
+            x + offsetX,
+            y + offsetY,
+            "CheckpointTileset",
+            0,
+        );
+
+        block.setDepth(-4);
+
+        block.checkpointId = index;
+        block.active = false;
+        block.setSize(obj.width, obj.height);
+        block.refreshBody();
+    });
+    if (isLocalOwner) {
+        camBottom.ignore(checkpointsGroup.getChildren());
+    } else {
+        camTop.ignore(checkpointsGroup.getChildren());
+    }
+
+    if (isLocalOwner) {
+        checkpointOverlap = scene.physics.add.overlap(
+            localPlayer,
+            checkpointsGroup,
+            (player, checkpoint) => {
+                if (!checkpoint || checkpoint.active) return;
+
+                activateCheckpointLocal(
+                    checkpointsGroup,
+                    checkpoint,
+                    mapKey,
+                    true,
+                );
+
+                socket.emit("checkpointUpdate", {
+                    room: roomCode,
+                    mapKey,
+                    checkpointId: checkpoint.checkpointId,
+                });
+            },
+        );
+    }
+
     if (mapKey === "level3") {
         const jumpLayer = map.getObjectLayer("ObjJump");
         jumpGroup = scene.physics.add.staticGroup();
 
-        jumpLayer.objects.forEach((obj) => {
+        jumpLayer.objects.forEach((obj, index) => {
             const x = obj.x + obj.width / 2;
             const y = obj.y - obj.height / 2;
 
@@ -1118,22 +1193,23 @@ function buildLevel({
                 y + offsetY,
                 "flowerSheet",
             );
+
+            block.jumpId = index;
             block.usedJump = false;
-
-            // camBottom.ignore(block); //since it's only p1 anyways
-
             block.setSize(obj.width, obj.height);
         });
         if (isPlayer1) {
             //only happens on p1 anyways
             scene.physics.add.overlap(localPlayer, jumpGroup, (player, obj) => {
+                if (!obj.anims) return;
+
                 if (!obj.usedJump) {
                     obj.anims.play("flower", true);
                     localPlayer.setVelocityY(-600);
                     obj.usedJump = true;
                     socket.emit("jumpAnimUpdate", {
                         room: roomCode,
-                        object: obj,
+                        jumpId: obj.jumpId,
                         reset: false,
                     });
 
@@ -1141,9 +1217,10 @@ function buildLevel({
                         obj.anims.playReverse("flower");
                         socket.emit("jumpAnimUpdate", {
                             room: roomCode,
-                            object: obj,
+                            jumpId: obj.jumpId,
                             reset: true,
                         });
+
                         setTimeout(() => {
                             obj.usedJump = false;
                         }, 1600);
@@ -1159,7 +1236,7 @@ function buildLevel({
     // obj death
     if (isLocalOwner) {
         const deathLayer = map.getObjectLayer("ObjDeath");
-        const deathGroup = scene.physics.add.staticGroup();
+        deathGroup = scene.physics.add.staticGroup();
 
         deathLayer.objects.forEach((obj) => {
             const x = obj.x + obj.width / 2;
@@ -1191,6 +1268,9 @@ function buildLevel({
             key: mapKey,
             owner: owner,
             jumpGroup,
+            checkpoints: checkpointsGroup,
+            checkpointOverlap,
+            deathGroup,
         });
     } else {
         activeLevels.push({
@@ -1199,6 +1279,9 @@ function buildLevel({
             colliders,
             owner: owner,
             key: mapKey,
+            checkpoints: checkpointsGroup,
+            checkpointOverlap,
+            deathGroup,
         });
     }
     fadeOutOverlay();
@@ -1208,32 +1291,52 @@ function buildLevel({
 }
 
 function clearAllLevels(scene) {
-    checkpoints.length = 0;
-    activeCheckpointId = null;
+    try {
+        activeLevels.forEach((level) => {
+            if (scene[level.key + "bg"]) {
+                scene[level.key + "bg"].forEach((bg) => bg.destroy());
+                scene[level.key + "bg"] = [];
+            }
+            if (level.jumpGroup) {
+                level.jumpGroup.clear(true, true);
+                level.jumpGroup.destroy(true);
+                level.jumpGroup = null;
+            }
+            if (level.checkpointOverlap) {
+                scene.physics.world.removeCollider(level.checkpointOverlap);
+                level.checkpointOverlap = null;
+            }
+            if (level.deathGroup) {
+                level.deathGroup.clear(true, true);
+                level.deathGroup.destroy(true);
+                level.deathGroup = null;
+            }
+            if (level.checkpoints) {
+                level.checkpoints.clear(true, true);
+                level.checkpoints.destroy(true);
+                level.checkpoints = null;
+            }
 
-    activeLevels.forEach((level) => {
-        if (scene[level.key + "bg"]) {
-            scene[level.key + "bg"].forEach((bg) => bg.destroy());
-            scene[level.key + "bg"] = [];
-        }
-        if (level.jumpGroup) {
-            level.jumpGroup.clear(true, true);
-            level.jumpGroup.destroy(true);
-        }
+            level.colliders.forEach((c) => {
+                scene.physics.world.removeCollider(c);
+            });
+            level.colliders = [];
 
-        level.colliders.forEach((c) => {
-            scene.physics.world.removeCollider(c);
+            level.layers.forEach((layer) => {
+                layer.destroy();
+            });
+            level.layers = [];
+            if (level.map) {
+                level.map.destroy();
+                level.map = null;
+            }
         });
 
-        level.layers.forEach((layer) => {
-            layer.destroy();
-        });
-
-        level.map.destroy();
-    });
-
-    activeLevels.length = 0;
-    maps = {};
+        activeLevels.length = 0;
+        maps = {};
+    } catch (e) {
+        // console.log(e);
+    }
 }
 socket.on("getPosition", (data) => {
     socket.emit("getPosition", {
@@ -1251,7 +1354,7 @@ socket.on("destroyBlock", (data) => {
 
     const layer = map.getLayer(data.layer)?.tilemapLayer;
     if (!layer) return;
-    if (data.activatedBy == socket.id && localPlayer.breakActive) {
+    if (data.activatedBy == socket.id && localPlayer.shatterActive) {
         layer.removeTileAt(data.x, data.y);
     } else if (data.activatedBy != socket.id) {
         layer.removeTileAt(data.x, data.y);
@@ -1279,14 +1382,62 @@ socket.on("droneRecharge", (data) => {
         updateMessages(["green"], "Drone Recharged", false);
     }
 });
+function playAbilityChain(sprite, openKey, activeKey) {
+    if (
+        sprite.anims.isPlaying &&
+        sprite.anims.currentAnim &&
+        sprite.anims.currentAnim.key === activeKey
+    ) {
+        return;
+    }
+    if (
+        sprite.anims.isPlaying &&
+        sprite.anims.currentAnim &&
+        sprite.anims.currentAnim.key === openKey
+    ) {
+        return;
+    }
+    sprite.anims.play(openKey, true);
+    sprite.off("animationcomplete");
 
+    sprite.once("animationcomplete", (anim) => {
+        if (anim.key === openKey) {
+            sprite.anims.play(activeKey, true);
+        }
+    });
+}
 socket.on("jumpAnimUpdate", (data) => {
     if (!scene) return;
+
+    const level = activeLevels.find((l) => l.jumpGroup);
+    if (!level) return;
+
+    const flower = level.jumpGroup
+        .getChildren()
+        .find((f) => f.jumpId === data.jumpId);
+
+    if (!flower || !flower.anims) return;
+
     if (data.reset) {
-        data.object.anims.playReverse("flower");
+        flower.anims.playReverse("flower");
     } else {
-        data.object.anims.play("flower", true);
+        flower.anims.play("flower", true);
     }
+});
+
+socket.on("checkpointUpdate", (data) => {
+    if (!scene) return;
+
+    const level = activeLevels.find((l) => l.key === data.mapKey);
+    if (!level || !level.checkpoints) return;
+
+    const checkpoint = level.checkpoints
+        .getChildren()
+        .find((cp) => cp.checkpointId === data.checkpointId);
+
+    if (!checkpoint) return;
+
+    activateCheckpointLocal(level.checkpoints, checkpoint, data.mapKey, false);
 });
 
 let wonAlready;
@@ -1294,7 +1445,7 @@ socket.on("gameWin", (msg) => {
     if (wonAlready) return;
     wonAlready = true;
     updateMessages(["green"], "Level Cleared", true);
-    updateMessages(["green"], "Level Cleared", false);
+    // updateMessages(["green"], "Level Cleared", false);
 
     clearInterval(levelTimerInterval);
     socket.emit("setTimes", {
@@ -1307,7 +1458,7 @@ socket.on("gameWin", (msg) => {
     localPlayer.crouchActive = false;
     localPlayer.levitateActive = false;
     localPlayer.glideActive = false;
-    localPlayer.breakActive = false;
+    localPlayer.shatterActive = false;
     localPlayer.dashActive = false;
     localPlayer.droneActive = false;
 
@@ -1321,126 +1472,161 @@ socket.on("gameWin", (msg) => {
 });
 
 socket.on("switchCams", (data) => {
-    // console.log("alr switch from switchcams: " + alreadySwitched);
     if (alreadySwitched) return;
     alreadySwitched = true;
     currentPlayer = data.currentPlayer;
-    // console.log(currentPlayer);
-    // console.log("switchng cams");
     resizeCameras(true);
 });
 
 function resizeCameras(isSwitching) {
     if (!scene || !camTop || !camBottom || !localPlayer) return;
-    activeLevels.forEach((level) => {
-        let oldPlayer = currentPlayer == 1 ? 2 : 1;
-        if (level.owner == oldPlayer && isSwitching) {
-            // console.log("level being deleted:");
-            // console.log(level);
-            if (scene[level.key + "bg"]) {
-                scene[level.key + "bg"].forEach((bg) => bg.destroy());
-                scene[level.key + "bg"] = [];
-            }
-            if (level.jumpGroup) {
-                level.jumpGroup.clear(true, true);
-                level.jumpGroup.destroy(true);
-            }
+    try {
+        activeLevels.forEach((level) => {
+            let oldPlayer = currentPlayer == 1 ? 2 : 1;
+            if (level.owner == oldPlayer && isSwitching) {
+                // console.log("level being deleted:");
+                // console.log(level);
+                if (scene[level.key + "bg"]) {
+                    scene[level.key + "bg"].forEach((bg) => bg.destroy());
+                    scene[level.key + "bg"] = [];
+                }
+                if (level.jumpGroup) {
+                    level.jumpGroup.clear(true, true);
+                    level.jumpGroup.destroy(true);
+                    level.jumpGroup = null;
+                }
+                if (level.checkpointOverlap) {
+                    scene.physics.world.removeCollider(level.checkpointOverlap);
+                    level.checkpointOverlap = null;
+                }
+                if (level.deathGroup) {
+                    level.deathGroup.clear(true, true);
+                    level.deathGroup.destroy(true);
+                    level.deathGroup = null;
+                }
 
-            level.colliders.forEach((c) => {
-                scene.physics.world.removeCollider(c);
-            });
+                if (level.checkpoints) {
+                    level.checkpoints.clear(true, true);
+                    level.checkpoints.destroy(true);
+                    level.checkpoints = null;
+                }
 
-            level.layers.forEach((layer) => {
-                layer.destroy();
-            });
+                level.colliders.forEach((c) => {
+                    scene.physics.world.removeCollider(c);
+                });
+                level.colliders = [];
 
-            level.map.destroy();
-        } else {
-            //just resizing bgs
-            if (scene[level.key + "bg"]) {
-                scene[level.key + "bg"].forEach((bg) => bg.destroy());
-                scene[level.key + "bg"] = [];
+                level.layers.forEach((layer) => {
+                    layer.destroy();
+                });
+                level.layers = [];
+
+                if (level.map) {
+                    level.map.destroy();
+                    level.map = null;
+                }
+            } else {
+                //just resizing bgs
+                if (scene[level.key + "bg"]) {
+                    scene[level.key + "bg"].forEach((bg) => bg.destroy());
+                    scene[level.key + "bg"] = [];
+                }
             }
+        });
+
+        const backgrounds = [];
+        let cameraWidth = window.innerWidth;
+        let cameraHeight = window.innerHeight;
+
+        let mapWidth; //map.widthInPixels;
+        let mapHeight; //map.heightInPixels;
+        // console.log("camtop vis:" + camTop.visible);
+        // console.log("cambottom vis:" + camBottom.visible);
+
+        if (currentPlayer == 1) {
+            scene.physics.world.setBounds(0, 0, world1W, world1H);
+            camTop.setBounds(0, 0, world1W, world1H);
+            camBottom.setBounds(0, 0, world1W, world1H);
+            mapWidth = world1W;
+            mapHeight = world1H;
+            currentMap = currentMapKey1;
+        } else if (currentPlayer == 2) {
+            scene.physics.world.setBounds(0, 0, world2W, world2H);
+            camTop.setBounds(0, 0, world2W, world2H);
+            camBottom.setBounds(0, 0, world2W, world2H);
+            mapWidth = world2W;
+            mapHeight = world2H;
+            currentMap = currentMapKey2;
         }
-    });
 
-    const backgrounds = [];
-    let cameraWidth = window.innerWidth;
-    let cameraHeight = window.innerHeight;
+        if (
+            (isPlayer1 && currentPlayer == 1) ||
+            (!isPlayer1 && currentPlayer == 2)
+        ) {
+            // console.log("main player");
+            camBottom.setViewport(0, 0, 0, 0);
+            camBottom.setVisible(false);
+            camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
+            camTop.setVisible(true);
 
-    let mapWidth; //map.widthInPixels;
-    let mapHeight; //map.heightInPixels;
-    // console.log("camtop vis:" + camTop.visible);
-    // console.log("cambottom vis:" + camBottom.visible);
+            //only activate if you're the main player
+            // console.log(currentLevelName);
+            LEVEL_BACKGROUNDS[currentLevelName].forEach((bg, index) => {
+                const image = scene.add
+                    .image(0, 0, bg.key)
+                    .setScrollFactor(bg.factor)
+                    .setDepth(-100 + index);
+                let scaleX =
+                    (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
+                    image.width;
+                let scaleY =
+                    (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
+                    image.height;
+                let finalScale = Math.max(scaleX, scaleY);
+                finalScale *= 2;
+                image.setScale(finalScale);
+                camBottom.ignore(image);
+                backgrounds.push(image);
+            });
+            scene[currentLevelName + "bg"] = backgrounds;
+        } else {
+            camTop.setViewport(0, 0, 0, 0);
+            camTop.setVisible(false);
+            camBottom.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
+            camBottom.setVisible(true);
 
-    if (currentPlayer == 1) {
-        scene.physics.world.setBounds(0, 0, world1W, world1H);
-        camTop.setBounds(0, 0, world1W, world1H);
-        camBottom.setBounds(0, 0, world1W, world1H);
-        mapWidth = world1W;
-        mapHeight = world1H;
-    } else if (currentPlayer == 2) {
-        scene.physics.world.setBounds(0, 0, world2W, world2H);
-        camTop.setBounds(0, 0, world2W, world2H);
-        camBottom.setBounds(0, 0, world2W, world2H);
-        mapWidth = world2W;
-        mapHeight = world2H;
-    }
-
-    if (
-        (isPlayer1 && currentPlayer == 1) ||
-        (!isPlayer1 && currentPlayer == 2)
-    ) {
-        camBottom.setViewport(0, 0, 0, 0);
-        camBottom.setVisible(false);
-        camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
-        camTop.setVisible(true);
-
-        //only activate if you're the main player
-        // console.log(currentLevelName);
-        LEVEL_BACKGROUNDS[currentLevelName].forEach((bg, index) => {
-            const image = scene.add
-                .image(0, 0, bg.key)
-                .setScrollFactor(bg.factor)
-                .setDepth(-100 + index);
-            let scaleX =
-                (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
-                image.width;
-            let scaleY =
-                (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
-                image.height;
-            let finalScale = Math.max(scaleX, scaleY);
-            finalScale *= 2;
-            image.setScale(finalScale);
-            camBottom.ignore(image);
-            backgrounds.push(image);
-        });
-        scene[currentLevelName + "bg"] = backgrounds;
-    } else {
-        camTop.setViewport(0, 0, 0, 0);
-        camTop.setVisible(false);
-        camBottom.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
-        camBottom.setVisible(true);
-
-        //only activate if you're the side player
-        LEVEL_BACKGROUNDS[otherLevelName].forEach((bg, index) => {
-            const image = scene.add
-                .image(0, 0, bg.key)
-                .setScrollFactor(bg.factor)
-                .setDepth(-100 + index);
-            let scaleX =
-                (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
-                image.width;
-            let scaleY =
-                (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
-                image.height;
-            let finalScale = Math.max(scaleX, scaleY);
-            finalScale *= 2;
-            image.setScale(finalScale);
-            camTop.ignore(image);
-            backgrounds.push(image);
-        });
-        scene[otherLevelName + "bg"] = backgrounds;
+            //only activate if you're the side player
+            LEVEL_BACKGROUNDS[otherLevelName].forEach((bg, index) => {
+                const image = scene.add
+                    .image(0, 0, bg.key)
+                    .setScrollFactor(bg.factor)
+                    .setDepth(-100 + index);
+                let scaleX =
+                    (cameraWidth + (mapWidth - cameraWidth) * bg.factor) /
+                    image.width;
+                let scaleY =
+                    (cameraHeight + (mapHeight - cameraHeight) * bg.factor) /
+                    image.height;
+                let finalScale = Math.max(scaleX, scaleY);
+                finalScale *= 2;
+                image.setScale(finalScale);
+                camTop.ignore(image);
+                backgrounds.push(image);
+            });
+            scene[otherLevelName + "bg"] = backgrounds;
+        }
+        if (currentPlayer == 1 && isPlayer1) {
+            spawnXGlobal = spawnXp1;
+            spawnYGlobal = spawnYp1;
+            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+        }
+        if (currentPlayer == 2 && !isPlayer1) {
+            spawnXGlobal = spawnXp2;
+            spawnYGlobal = spawnYp2;
+            localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+        }
+    } catch (e) {
+        // console.log(e);
     }
 }
 function generateLevels(nextLevel1, nextLevel2, currentPlayerData) {
@@ -1456,6 +1642,9 @@ function generateLevels(nextLevel1, nextLevel2, currentPlayerData) {
     localPlayer.setPosition(256, 256);
     remotePlayer.setPosition(256, 256);
     currentPlayer = currentPlayerData;
+
+    currentMapKey1 = nextLevel1.mapKey;
+    currentMapKey2 = nextLevel2.mapKey;
 
     [world1W, world1H] = buildLevel({
         map: map1,
@@ -1491,6 +1680,11 @@ function generateLevels(nextLevel1, nextLevel2, currentPlayerData) {
     maps[nextLevel1.mapKey] = map1;
     maps[nextLevel2.mapKey] = map2;
 
+    spawnXp1 = nextLevel1.spawnX;
+    spawnYp1 = nextLevel1.spawnY;
+    spawnXp2 = nextLevel2.spawnX;
+    spawnYp2 = nextLevel2.spawnY;
+
     const animatedTiles1 = getAnimatedTiles(map1);
     mapAnimatedTiles1 = getAllMapAnimatedTiles(
         activeLevels[0].layers,
@@ -1508,23 +1702,35 @@ let remoteTargetX, remoteTargetY;
 socket.on("playerUpdate", (data) => {
     remoteTargetX = data.x;
     remoteTargetY = data.y;
-    if (data.right) {
-        remotePlayer.flipX = false;
-        if (!isPlayer1) {
-            remotePlayer.anims.play("p1", true);
-        } else {
-            remotePlayer.anims.play("p2", true);
-        }
-    } else if (data.left) {
+    if (data.left) {
         remotePlayer.flipX = true;
-        if (!isPlayer1) {
-            remotePlayer.anims.play("p1", true);
+    } else if (data.right) {
+        remotePlayer.flipX = false;
+    }
+
+    if (
+        data.levitateActive ||
+        data.glideActive ||
+        data.shatterActive ||
+        data.dashActive ||
+        data.jump
+    ) {
+        return;
+    }
+    if (!isPlayer1) {
+        if (data.right || data.left) {
+            remotePlayer.anims.play("p1run", true);
         } else {
-            remotePlayer.anims.play("p2", true);
+            remotePlayer.anims.stop();
+            remotePlayer.setFrame(0);
         }
     } else {
-        remotePlayer.anims.stop();
-        remotePlayer.setFrame(0);
+        if (data.right || data.left) {
+            remotePlayer.anims.play("p2run", true);
+        } else {
+            remotePlayer.anims.stop();
+            remotePlayer.setFrame(0);
+        }
     }
 });
 
@@ -1543,9 +1749,6 @@ function applyLevels(data) {
     wonAlready = false;
     gotAbility = false;
     // usedJump = false;
-
-    checkpoints.length = 0;
-    activeCheckpointId = null;
 
     mapAnimatedTiles1.length = 0;
     mapAnimatedTiles2.length = 0;
@@ -1685,44 +1888,6 @@ function mergeCameras() {
     scene.physics.add.collider(localPlayer, remotePlayer);
 
     document.getElementById("divider").style.display = "none";
-}
-
-function activateCheckpoint(tiles, mapKey, offsetX, offsetY) {
-    // Find which checkpoint this is
-    const checkpoint = checkpoints.find((cp) =>
-        cp.tiles.every((t) => tiles.includes(t)),
-    );
-
-    if (!checkpoint || checkpoint.id === activeCheckpointId) return;
-
-    activeCheckpointId = checkpoint.id;
-
-    // Reset all checkpoints
-    checkpoints.forEach((cp) => {
-        cp.tiles.forEach((tile, i) => {
-            tile.index = CHECKPOINT_DEFAULT_TILES[i];
-        });
-    });
-
-    // Activate this one
-    tiles.forEach((tile, i) => {
-        tile.index = CHECKPOINT_ACTIVE_TILES[i];
-    });
-
-    spawnXGlobal = tiles[0].pixelX + 16 + offsetX;
-    spawnYGlobal = tiles[0].pixelY + 16 + offsetY;
-}
-
-function getCheckpointTiles(tile, layer) {
-    const x = tile.x;
-    const y = tile.y;
-
-    return [
-        layer.getTileAt(x, y), // TL
-        layer.getTileAt(x + 1, y), // TR
-        layer.getTileAt(x, y + 1), // BL
-        layer.getTileAt(x + 1, y + 1), // BR
-    ].filter(Boolean);
 }
 
 function getTouchingTiles(targetTile, layer) {
@@ -2115,6 +2280,10 @@ function preload() {
         frameWidth: 48,
         frameHeight: 48,
     });
+    this.load.spritesheet("CheckpointTileset", "assets/CheckpointTileset.png", {
+        frameWidth: 64,
+        frameHeight: 64,
+    });
 
     this.load.tilemapTiledJSON("level1", "assets/levels/RDLevel1.tmj");
     this.load.tilemapTiledJSON("level2", "assets/levels/RDLevel2.tmj");
@@ -2211,12 +2380,12 @@ function create() {
     updateKeybinds();
 
     //level skipping, comment out for final build
-    this.input.keyboard.on("keydown-Z", function (event) {
+    /* this.input.keyboard.on("keydown-Z", function (event) {
         socket.emit("gameWinUpdate", {
             room: roomCode,
             touching: true,
         });
-    });
+    });*/
 
     /*  grid = this.add.grid(
         500,
@@ -2253,7 +2422,16 @@ function create() {
         repeat: 0,
     });
     this.anims.create({
-        key: "p1",
+        key: "checkpointAnim",
+        frames: this.anims.generateFrameNumbers("CheckpointTileset", {
+            start: 0,
+            end: 1,
+        }),
+        frameRate: 20,
+        repeat: 0,
+    });
+    this.anims.create({
+        key: "p1run",
         frames: this.anims.generateFrameNumbers("p1", {
             start: 1,
             end: 4,
@@ -2262,10 +2440,82 @@ function create() {
         repeat: -1,
     });
     this.anims.create({
-        key: "p2",
+        key: "p1glideOpen",
+        frames: this.anims.generateFrameNumbers("p1", {
+            start: 5,
+            end: 10,
+        }),
+        frameRate: 9,
+        repeat: 0,
+    });
+    this.anims.create({
+        key: "p1glideActive",
+        frames: this.anims.generateFrameNumbers("p1", {
+            start: 11,
+            end: 15,
+        }),
+        frameRate: 9,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p1levitate",
+        frames: this.anims.generateFrameNumbers("p1", {
+            start: 16,
+            end: 27,
+        }),
+        frameRate: 7,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p1jump",
+        frames: this.anims.generateFrameNumbers("p1", {
+            start: 28,
+            end: 29,
+        }),
+        frameRate: 17,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p2run",
         frames: this.anims.generateFrameNumbers("p2", {
             start: 1,
             end: 4,
+        }),
+        frameRate: 17,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p2jump",
+        frames: this.anims.generateFrameNumbers("p2", {
+            start: 5,
+            end: 6,
+        }),
+        frameRate: 17,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p2dashOpen",
+        frames: this.anims.generateFrameNumbers("p2", {
+            start: 7,
+            end: 11,
+        }),
+        frameRate: 9,
+        repeat: 0,
+    });
+    this.anims.create({
+        key: "p2dashActive",
+        frames: this.anims.generateFrameNumbers("p2", {
+            start: 12,
+            end: 19,
+        }),
+        frameRate: 9,
+        repeat: -1,
+    });
+    this.anims.create({
+        key: "p2shatter",
+        frames: this.anims.generateFrameNumbers("p2", {
+            start: 20,
+            end: 23,
         }),
         frameRate: 17,
         repeat: -1,
@@ -2413,10 +2663,53 @@ function update(time, delta) {
                         localPlayer.setVelocityY(-400);
                     }
                 }
+                if (localPlayer.body.blocked.down) {
+                    localPlayer.jump = false;
+                } else {
+                    localPlayer.jump = true;
+                }
             }
+
             let velocityX = 360;
             if (localPlayer.dashActive) {
                 velocityX = 1500;
+            }
+            //do anims logic haha :sob: if else chain of doom ahh
+            if (localPlayer.levitateActive) {
+                localPlayer.anims.play("p1levitate", true);
+            } else if (localPlayer.glideActive) {
+                const currentKey = localPlayer.anims.currentAnim
+                    ? localPlayer.anims.currentAnim.key
+                    : "";
+
+                if (currentKey !== "p1glideOpen") {
+                    localPlayer.anims.play("p1glideActive", true);
+                }
+            } else if (localPlayer.shatterActive) {
+                localPlayer.anims.play("p2shatter", true);
+            } else if (localPlayer.dashActive) {
+                const currentKey = localPlayer.anims.currentAnim
+                    ? localPlayer.anims.currentAnim.key
+                    : "";
+
+                if (currentKey !== "p2dashOpen") {
+                    localPlayer.anims.play("p2dashActive", true);
+                }
+            } else if (this.rightKey.isDown || rightBtnActive) {
+                if (isPlayer1) {
+                    localPlayer.anims.play("p1run", true);
+                } else {
+                    localPlayer.anims.play("p2run", true);
+                }
+            } else if (this.leftKey.isDown || leftBtnActive) {
+                if (isPlayer1) {
+                    localPlayer.anims.play("p1run", true);
+                } else {
+                    localPlayer.anims.play("p2run", true);
+                }
+            } else {
+                localPlayer.anims.stop();
+                localPlayer.setFrame(0);
             }
 
             if (this.rightKey.isDown || rightBtnActive) {
@@ -2424,27 +2717,13 @@ function update(time, delta) {
                 localPlayer.flipX = false;
 
                 isGoingRight = true;
-
-                if (isPlayer1) {
-                    localPlayer.anims.play("p1", true);
-                } else {
-                    localPlayer.anims.play("p2", true);
-                }
             } else if (this.leftKey.isDown || leftBtnActive) {
                 localPlayer.setVelocityX(-velocityX);
                 localPlayer.flipX = true;
 
                 isGoingLeft = true;
-
-                if (isPlayer1) {
-                    localPlayer.anims.play("p1", true);
-                } else {
-                    localPlayer.anims.play("p2", true);
-                }
             } else {
                 localPlayer.setVelocityX(0);
-                localPlayer.anims.stop();
-                localPlayer.setFrame(0);
                 isGoingLeft = false;
                 isGoingRight = false;
             }
@@ -2462,6 +2741,13 @@ function update(time, delta) {
                 y: localPlayer.y,
                 left: isGoingLeft,
                 right: isGoingRight,
+                crouchActive: localPlayer.crouchActive,
+                levitateActive: localPlayer.levitateActive,
+                glideActive: localPlayer.glideActive,
+                shatterActive: localPlayer.shatterActive,
+                dashActive: localPlayer.dashActive,
+                droneActive: localPlayer.droneActive,
+                jump: localPlayer.jump,
             });
         }
         localPlayerState.x = localPlayer.x;
