@@ -146,6 +146,7 @@ function createRoom(id) {
     users: {},
     roomCode: roomCode,
     started: false,
+    roundId: 0,
     abilities: {
       1: null,
       2: null,
@@ -337,6 +338,23 @@ io.on("connection", (socket) => {
       // console.log(e);
     }
   });
+  socket.on("gameClearUI", (data) => {
+    try {
+      const room = rooms[data.room];
+      const times = room.levelTimes;
+
+      let timeinMs = 0;
+
+      for (let key in times) {
+        timeinMs += times[key];
+      }
+      io.to(data.room).emit("gameClearUI", {
+        totalTime: timeinMs,
+      });
+    } catch (e) {
+      //console.log(e)
+    }
+  });
   socket.on("requestNextLevel", (roomCode) => {
     try {
       const room = rooms[roomCode];
@@ -352,6 +370,7 @@ io.on("connection", (socket) => {
         //check if both p1 and p2 have sent the ready
         const nextLevel1 = pickNextLevel(room, 1);
         const nextLevel2 = pickNextLevel(room, 2);
+        room.roundId += 1;
         if (nextLevel1 && nextLevel2) {
           room.abilities[1] = nextLevel1.ability;
           room.abilities[2] = nextLevel2.ability;
@@ -380,11 +399,13 @@ io.on("connection", (socket) => {
             nextLevel1,
             nextLevel2,
             currentPlayer,
+            roundId: room.roundId,
           });
         } else {
           io.to(roomCode).emit("generateLevels", {
             nextLevel1: false,
             nextLevel2: false,
+            roundId: room.roundId,
           });
         }
       }
@@ -567,30 +588,35 @@ io.on("connection", (socket) => {
     }
   });
   socket.on("gameWinUpdate", (data) => {
-    try {
-      rooms[data.room].users[socket.id].win = data.touching;
+    const room = rooms[data.room];
+    if (!room) return;
 
-      const playerIds = Object.keys(rooms[data.room].users);
-      if (playerIds.length !== 2) return; // Only win with 2 players
+    room.users[socket.id].win = data.touching;
 
-      let p1 = rooms[data.room].users[playerIds[0]].win;
-      let p2 = rooms[data.room].users[playerIds[1]].win;
-      if (p1 == true && p2 == true) {
-        rooms[data.room].users[playerIds[0]].win = false;
-        rooms[data.room].users[playerIds[1]].win = false;
-        rooms[data.room].currentPlayer =
-          rooms[data.room].currentPlayer === 1 ? 2 : 1;
-        io.to(data.room).emit("gameWin", "Both Win!");
-      } else {
-        rooms[data.room].currentPlayer =
-          rooms[data.room].currentPlayer === 1 ? 2 : 1;
-        io.to(data.room).emit("switchCams", {
-          currentPlayer: rooms[data.room].currentPlayer,
-        });
-      }
-    } catch (e) {
-      // console.log(e);
+    const ids = Object.keys(room.users);
+    if (ids.length !== 2) return;
+
+    const wins = ids.map((id) => room.users[id].win);
+
+    if (wins[0] && wins[1]) {
+      rooms[data.room].users[ids[0]].win = false;
+      rooms[data.room].users[ids[1]].win = false;
+
+      room.currentPlayer = room.currentPlayer === 1 ? 2 : 1;
+
+      io.to(data.room).emit("gameWin", {
+        currentPlayer: room.currentPlayer,
+      });
+
+      return;
     }
+
+    room.currentPlayer = room.currentPlayer === 1 ? 2 : 1;
+
+    io.to(data.room).emit("switchCams", {
+      currentPlayer: room.currentPlayer,
+      roundId: room.roundId,
+    });
   });
   socket.on("leaveRoom", (roomCode) => {
     try {
