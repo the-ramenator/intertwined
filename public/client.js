@@ -391,7 +391,7 @@ function copyText(button) {
       }, 3000);
     })
     .catch((err) => {
-      console.error("Failed to copy: ", err);
+      //   console.error("Failed to copy: ", err);
     });
 }
 document.getElementById("copyLink").addEventListener("click", function () {
@@ -843,6 +843,7 @@ socket.on("deathReset", (data) => {
   }, 1000);
 });
 function deathReset() {
+  //   console.log("death reset fct");
   localPlayer.setTint(0xff0000);
   scene.pausePhysics = true;
   setPhysicsOn(localPlayer, false);
@@ -950,6 +951,7 @@ function updateTileAnimations(mapAnimatedTiles, delta) {
 }
 
 function activateCheckpointLocal(group, activeCheckpoint, mapKey, isLocal) {
+  //   console.log("activatecheckpoint fct");
   try {
     group.getChildren().forEach((cp) => {
       cp.active = false;
@@ -965,7 +967,7 @@ function activateCheckpointLocal(group, activeCheckpoint, mapKey, isLocal) {
       spawnYGlobal = activeCheckpoint.y;
     }
   } catch (e) {
-    console.log(e);
+    // console.log(e);
   }
 }
 
@@ -984,6 +986,7 @@ function buildLevel({
   camBottom,
   ability,
 }) {
+  //   console.log("build level fct");
   const layers = [];
   const colliders = [];
   const isLocalOwner =
@@ -1058,6 +1061,7 @@ function buildLevel({
                         }, 500);*/
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "Death") {
         //layer.setVisible(false);
@@ -1071,6 +1075,7 @@ function buildLevel({
             deathReset();
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "AB") {
         //layer.setVisible(false);
@@ -1089,6 +1094,7 @@ function buildLevel({
             }
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "Teleport") {
         //layer.setVisible(false);
@@ -1102,6 +1108,7 @@ function buildLevel({
             localPlayer.setPosition(tile.properties.x, tile.properties.y);
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "BB") {
         layer.setCollisionByProperty({ collides: true });
@@ -1131,6 +1138,7 @@ function buildLevel({
             });
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "Recharge") {
         //layer.setVisible(false);
@@ -1146,6 +1154,7 @@ function buildLevel({
             });
           },
         );
+        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       }
     }
@@ -1182,13 +1191,13 @@ function buildLevel({
     try {
       camBottom.ignore(checkpointsGroup.getChildren());
     } catch (e) {
-      console.log(e);
+      //   console.log(e);
     }
   } else {
     try {
       camTop.ignore(checkpointsGroup.getChildren());
     } catch (e) {
-      console.log(e);
+      //   console.log(e);
     }
   }
 
@@ -1198,6 +1207,7 @@ function buildLevel({
         localPlayer,
         checkpointsGroup,
         (player, checkpoint) => {
+          //   console.log("touched checkpoint");
           if (isChangingLevels) return;
           if (!checkpoint || checkpoint.active) return;
 
@@ -1210,10 +1220,13 @@ function buildLevel({
           });
         },
       );
+      //   console.log("Created overlap", checkpointOverlap);
+      colliders.push(checkpointOverlap);
     } catch (e) {
-      console.log(e);
+      //   console.log(e);
     }
   }
+  let jumpOverlap;
 
   if (mapKey === "level3") {
     const jumpLayer = map.getObjectLayer("ObjJump");
@@ -1231,34 +1244,40 @@ function buildLevel({
     });
     if (isPlayer1) {
       //only happens on p1 anyways
-      scene.physics.add.overlap(localPlayer, jumpGroup, (player, obj) => {
-        if (isChangingLevels) return;
-        if (!obj.anims) return;
+      jumpOverlap = scene.physics.add.overlap(
+        localPlayer,
+        jumpGroup,
+        (player, obj) => {
+          if (isChangingLevels) return;
+          if (!obj.anims) return;
 
-        if (!obj.usedJump) {
-          obj.anims.play("flower", true);
-          localPlayer.setVelocityY(-600);
-          obj.usedJump = true;
-          socket.emit("jumpAnimUpdate", {
-            room: roomCode,
-            jumpId: obj.jumpId,
-            reset: false,
-          });
-
-          setTimeout(() => {
-            obj.anims.playReverse("flower");
+          if (!obj.usedJump) {
+            obj.anims.play("flower", true);
+            localPlayer.setVelocityY(-600);
+            obj.usedJump = true;
             socket.emit("jumpAnimUpdate", {
               room: roomCode,
               jumpId: obj.jumpId,
-              reset: true,
+              reset: false,
             });
 
             setTimeout(() => {
-              obj.usedJump = false;
-            }, 1600);
-          }, 3000);
-        }
-      });
+              obj.anims.playReverse("flower");
+              socket.emit("jumpAnimUpdate", {
+                room: roomCode,
+                jumpId: obj.jumpId,
+                reset: true,
+              });
+
+              setTimeout(() => {
+                obj.usedJump = false;
+              }, 1600);
+            }, 3000);
+          }
+        },
+      );
+      //   console.log("Created overlap", jumpOverlap);
+      colliders.push(jumpOverlap);
       camBottom.ignore(jumpGroup.getChildren());
     } else {
       camTop.ignore(jumpGroup.getChildren());
@@ -1287,10 +1306,11 @@ function buildLevel({
       localPlayer,
       deathGroup,
       (player, tile) => {
-        if (!tile || !tile.layer || !tile.layer.tilemapLayer) return;
+        if (!tile) return;
         deathReset();
       },
     );
+    // console.log("Created overlap", deathCollider);
     colliders.push(deathCollider);
   }
   if (jumpGroup) {
@@ -1324,6 +1344,7 @@ function buildLevel({
 }
 
 function clearAllLevels(scene) {
+  //   console.log("clearall levels fct");
   mapAnimatedTiles1.length = 0;
   mapAnimatedTiles2.length = 0;
   try {
@@ -1352,11 +1373,14 @@ function clearAllLevels(scene) {
         level.checkpoints.destroy(true);
         level.checkpoints = null;
       }
+      //   console.log("Removing", level.colliders.length, "colliders");
 
       level.colliders.forEach((c) => {
         scene.physics.world.removeCollider(c);
       });
       level.colliders = [];
+
+      //   scene.physics.world.colliders.destroy();
 
       level.layers.forEach((layer) => {
         layer.destroy();
@@ -1378,6 +1402,7 @@ function clearAllLevels(scene) {
   }
 }
 socket.on("getPosition", (data) => {
+  //localPlayer.setVelocity(0); //nah cuz what if 5/5 alr
   socket.emit("getPosition", {
     room: roomCode,
     x: localPlayer.x,
@@ -1465,6 +1490,8 @@ socket.on("jumpAnimUpdate", (data) => {
 });
 
 socket.on("checkpointUpdate", (data) => {
+  //   console.log("checkpoint update socket evnt");
+
   if (!scene) return;
 
   const level = activeLevels.find((l) => l.key === data.mapKey);
@@ -1522,8 +1549,10 @@ function gameClearedUI(ms) {
       document.getElementById("join").style.display = "block";
       document.getElementById("leaveBtn").style.display = "none";
       document.getElementById("copyLink").style.display = "none";
-      game.destroy();
-      game = null;
+      if (game) {
+        game.destroy();
+        game = null;
+      }
     }, 500);
     resetUI();
     document.getElementById("title-white").innerHTML = "Inter";
@@ -1533,6 +1562,7 @@ function gameClearedUI(ms) {
   }, 20000);
 }
 socket.on("gameWin", (msg) => {
+  //   console.log("gamewin socket event");
   if (wonAlready) return;
   wonAlready = true;
   updateMessages(["green"], "Level Cleared", true);
@@ -1562,36 +1592,46 @@ socket.on("gameWin", (msg) => {
   }, 2000);
 });
 
-// socket.on("switchCams", (data) => {
-//   if (alreadySwitched) return;
-//   alreadySwitched = true;
-//   currentPlayer = data.currentPlayer;
-//   isChangingLevels = true;
-//   resizeCameras(true);
-// });
-
 socket.on("switchCams", (data) => {
   if (alreadySwitched) return;
   if (data.roundId !== activeRoundId) return;
   //   if (currentPlayer === lastKnownPlayer) return;
   //   lastKnownPlayer = currentPlayer;
   alreadySwitched = true;
+  //   console.log("switch cams socket event");
+
+  if (levelTimerInterval) {
+    clearInterval(levelTimerInterval);
+    socket.emit("setTimes", {
+      time: levelTimer,
+      levelName: currentLevelName,
+      isPlayer1: isPlayer1,
+      room: roomCode,
+    });
+    startTime = Date.now();
+
+    levelTimerInterval = setInterval(function () {
+      levelTimer = Date.now() - startTime;
+      document.getElementById("timer").innerHTML =
+        (levelTimer / 1000).toFixed(0) + "s";
+    }, 100);
+  }
   safeSwitchCameras(data.currentPlayer);
 });
 
 function teardownLevelsForOwner(oldOwner) {
+  //   console.log("teardownlevelsforowner");
   activeLevels.forEach((level) => {
     if (level.owner !== oldOwner) return;
     if (!level.map || !level.map.layers || level.map.layers.length === 0)
       return;
 
-    // 1. Remove colliders FIRST
+    // console.log("Removing", level.colliders.length, "colliders");
     level.colliders?.forEach((c) => {
       scene.physics.world.removeCollider(c);
     });
     level.colliders = [];
 
-    // 2. Destroy groups
     level.jumpGroup?.clear(true, true);
     level.jumpGroup?.destroy(true);
     level.jumpGroup = null;
@@ -1620,25 +1660,30 @@ function teardownLevelsForOwner(oldOwner) {
 }
 
 function resizeCamerasOnly() {
+  //   console.log("resize cameras only fct");
   let cameraWidth = window.innerWidth;
   let cameraHeight = window.innerHeight;
 
   let mapWidth, mapHeight;
 
   if (currentPlayer === 1) {
+    // console.log("world1 dimen: " + world1W / 32 + ", " + world1H / 32);
     scene.physics.world.setBounds(0, 0, world1W, world1H);
     camTop.setBounds(0, 0, world1W, world1H);
     camBottom.setBounds(0, 0, world1W, world1H);
     mapWidth = world1W;
     mapHeight = world1H;
     currentMap = currentMapKey1;
+    // console.log("settingworldbounds");
   } else {
+    // console.log("world2 dimen: " + world2W / 32 + ", " + world2H / 32);
     scene.physics.world.setBounds(0, 0, world2W, world2H);
     camTop.setBounds(0, 0, world2W, world2H);
     camBottom.setBounds(0, 0, world2W, world2H);
     mapWidth = world2W;
     mapHeight = world2H;
     currentMap = currentMapKey2;
+    // console.log("settingworldbounds");
   }
 
   // Camera visibility
@@ -1680,9 +1725,12 @@ function resizeCamerasOnly() {
   });
 
   scene[bgKey + "bg"] = backgrounds;
+  //   console.log("correctly resized w/out errors");
 }
 
 function safeSwitchCameras(newCurrentPlayer) {
+  //   console.log("safe switch cameras");
+
   if (!scene || isChangingLevels) return;
 
   isChangingLevels = true;
@@ -1715,6 +1763,7 @@ function safeSwitchCameras(newCurrentPlayer) {
 }
 
 function generateLevels(nextLevel1, nextLevel2, currentPlayerData) {
+  //   console.log("generate levels fct");
   const map1 = scene.make.tilemap({ key: nextLevel1.mapKey });
   const tilesets1 = map1.tilesets.map((ts) =>
     map1.addTilesetImage(ts.name, ts.name),
@@ -1844,6 +1893,7 @@ socket.on("generateLevels", (data) => {
 });
 
 function applyLevels(data) {
+  //   console.log("apply levels fct");
   if (scene && scene.physics) {
     scene.physics.world.pause();
   }
@@ -2431,7 +2481,7 @@ function create() {
   remotePlayer.body.moves = false;
   remotePlayer.body.immovable = true;
 
-  // Handle Socket.io events
+  //socket events
   remoteTargetX = 0;
   remoteTargetY = 0;
 
@@ -2452,25 +2502,12 @@ function create() {
   updateKeybinds();
 
   //level skipping, comment out for final build
-  this.input.keyboard.on("keydown-Z", function (event) {
+  /* this.input.keyboard.on("keydown-Z", function (event) {
     socket.emit("gameWinUpdate", {
       room: roomCode,
       touching: true,
     });
-  });
-
-  /*  grid = this.add.grid(
-        500,
-        500,
-        1000,
-        1000,
-        32,
-        32,
-        null,
-        null,
-        0x00ff00, // Outline color (e.g., green lines)
-        0.5, // Outline alpha (transparency)
-    );*/
+  });*/
 
   this.pausePhysics = false;
 
@@ -2832,7 +2869,7 @@ function update(time, delta) {
       remotePlayer.y = Phaser.Math.Linear(remotePlayer.y, remoteTargetY, eased);
     }
   } catch (e) {
-    console.log(e);
+    // console.log(e);
   }
 }
 window.addEventListener("resize", function () {
