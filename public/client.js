@@ -12,6 +12,10 @@ let spawnXGlobal, spawnYGlobal, spawnXp1, spawnYp1, spawnXp2, spawnYp2; //update
 let currentLevelName, otherLevelName;
 let mainLayerXOffset, mainLayerYOffset;
 
+let singlePlayerCurrentMap;
+
+let singlePlayerDroneUsage = 0;
+
 // let lastKnownPlayer = null;
 let activeRoundId = null;
 
@@ -43,6 +47,8 @@ let mapAnimatedTiles1 = [];
 let mapAnimatedTiles2 = [];
 
 let isChangingLevels = false;
+
+let isSinglePlayer = false;
 
 const DEATH_TILES = [
   19, 20, 27, 28, 818, 819, 770, 771 /*, 756, 708, 660, 612*/,
@@ -98,6 +104,39 @@ let locked = [
     ability: "drone",
   },
 ];
+const ABILITY_CONFIG_SINGLE = {
+  glide: {
+    duration: Infinity,
+    cooldown: 2000,
+    mode: "channel", //allow early cancel
+  },
+  dash: {
+    duration: 5000,
+    cooldown: 1500,
+    mode: "channel",
+  },
+  levitate: {
+    duration: 7000,
+    cooldown: 4000,
+    mode: "channel",
+  },
+  crouch: {
+    duration: Infinity,
+    cooldown: 0,
+    mode: "channel",
+  },
+  shatter: {
+    duration: 950,
+    cooldown: 2500,
+    mode: "channel",
+  },
+  drone: {
+    duration: null,
+    cooldown: 500, //10000
+    mode: "channel",
+  },
+};
+
 const LEVEL_BACKGROUNDS = {
   level1: [
     { key: "level1layer1", factor: 0.05 },
@@ -204,6 +243,9 @@ function updateMessages(classes, msg, isLocal, duration = false) {
 const abilities = {
   crouch: {
     activate({ abilityOwner, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.crouchActive = true;
+      }
       getPlayerByOwner(abilityOwner).setScale(0.5);
       getPlayerByOwner(abilityOwner).crouchActive = true;
       let isPlayerCheck = isPlayer1 ? 1 : 2;
@@ -211,6 +253,9 @@ const abilities = {
       updateMessages(["green"], "Crouch Active", isLocal, duration);
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.crouchActive = false;
+      }
       getPlayerByOwner(abilityOwner).setScale(1);
 
       getPlayerByOwner(abilityOwner).crouchActive = false;
@@ -224,13 +269,22 @@ const abilities = {
   },
   levitate: {
     activate({ abilityOwner, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.levitateActive = true;
+      }
       getPlayerByOwner(abilityOwner).levitateActive = true;
+      console.log(
+        "ab obj lev: " + getPlayerByOwner(abilityOwner).levitateActive,
+      );
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
       updateMessages(["green"], "Levitate Active", isLocal, duration);
       getPlayerByOwner(abilityOwner).anims.play("p1levitate", true);
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.levitateActive = false;
+      }
       getPlayerByOwner(abilityOwner).levitateActive = false;
       getPlayerByOwner(abilityOwner).anims.stop();
       getPlayerByOwner(abilityOwner).setFrame(0);
@@ -245,6 +299,9 @@ const abilities = {
   },
   glide: {
     activate({ abilityOwner, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.glideActive = true;
+      }
       getPlayerByOwner(abilityOwner).glideActive = true;
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
@@ -257,9 +314,17 @@ const abilities = {
       getPlayerByOwner(abilityOwner).setScale(1.8);
       getPlayerByOwner(abilityOwner).body.setSize(24, 24);
       getPlayerByOwner(abilityOwner).setOffset(12, 24);
+      if (isSinglePlayer) {
+        localPlayer.setScale(1.8);
+        localPlayer.body.setSize(24, 24);
+        localPlayer.setOffset(12, 24);
+      }
       // getPlayerByOwner(abilityOwner).body.refreshBody();
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.glideActive = false;
+      }
       getPlayerByOwner(abilityOwner).glideActive = false;
       getPlayerByOwner(abilityOwner).anims.stop();
       getPlayerByOwner(abilityOwner).setFrame(0);
@@ -267,7 +332,10 @@ const abilities = {
       getPlayerByOwner(abilityOwner).setScale(1);
       getPlayerByOwner(abilityOwner).body.setSize(48, 48);
       // getPlayerByOwner(abilityOwner).body.refreshBody();
-
+      if (isSinglePlayer) {
+        localPlayer.setScale(1);
+        localPlayer.body.setSize(48, 48);
+      }
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
       if (activeInterval) {
@@ -279,6 +347,9 @@ const abilities = {
   //p2 objs
   shatter: {
     activate({ abilityOwner, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.shatterActive = true;
+      }
       getPlayerByOwner(abilityOwner).shatterActive = true;
       getPlayerByOwner(abilityOwner).anims.play("p2shatter", true);
 
@@ -287,6 +358,9 @@ const abilities = {
       updateMessages(["green"], "Shatter Active", isLocal, duration);
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.shatterActive = false;
+      }
       getPlayerByOwner(abilityOwner).shatterActive = false;
       getPlayerByOwner(abilityOwner).anims.stop();
       getPlayerByOwner(abilityOwner).setFrame(0);
@@ -301,6 +375,9 @@ const abilities = {
   },
   dash: {
     activate({ abilityOwner, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.dashActive = true;
+      }
       getPlayerByOwner(abilityOwner).dashActive = true;
       playAbilityChain(
         getPlayerByOwner(abilityOwner),
@@ -313,10 +390,18 @@ const abilities = {
       getPlayerByOwner(abilityOwner).setScale(1.8);
       getPlayerByOwner(abilityOwner).body.setSize(24, 24);
       getPlayerByOwner(abilityOwner).setOffset(12, 16);
+      if (isSinglePlayer) {
+        localPlayer.setScale(1.8);
+        localPlayer.body.setSize(24, 24);
+        localPlayer.setOffset(12, 16);
+      }
 
       updateMessages(["green"], "Dash Active", isLocal, duration);
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.dashActive = false;
+      }
       getPlayerByOwner(abilityOwner).dashActive = false;
 
       getPlayerByOwner(abilityOwner).anims.stop();
@@ -324,7 +409,10 @@ const abilities = {
 
       getPlayerByOwner(abilityOwner).setScale(1);
       getPlayerByOwner(abilityOwner).body.setSize(48, 48);
-
+      if (isSinglePlayer) {
+        localPlayer.setScale(1);
+        localPlayer.body.setSize(48, 48);
+      }
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
       if (activeInterval) {
@@ -335,6 +423,9 @@ const abilities = {
   },
   drone: {
     activate({ abilityOwner, x, y, usage, duration }) {
+      if (isSinglePlayer) {
+        localPlayer.droneActive = true;
+      }
       getPlayerByOwner(abilityOwner).droneActive = true;
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
@@ -352,10 +443,14 @@ const abilities = {
         getPlayerByOwner(abilityOwner).setPosition(x, y);
         dronePlatform = dronePlatforms.create(x, y + 50, "drone").setScale(1);
         //camera ignore
-        if (isPlayer1) {
-          camTop.ignore(dronePlatform);
-        } else {
+        if (isSinglePlayer) {
           camBottom.ignore(dronePlatform);
+        } else {
+          if (isPlayer1) {
+            camTop.ignore(dronePlatform);
+          } else {
+            camBottom.ignore(dronePlatform);
+          }
         }
         dronePlatform.body.immovable = true;
         dronePlatform.body.moves = false;
@@ -363,6 +458,9 @@ const abilities = {
       }
     },
     deactivate({ abilityOwner }) {
+      if (isSinglePlayer) {
+        localPlayer.droneActive = false;
+      }
       getPlayerByOwner(abilityOwner).droneActive = false;
 
       let isPlayerCheck = isPlayer1 ? 1 : 2;
@@ -821,13 +919,50 @@ let singlePlayerLevelQueue = [];
 let currentSingleLevelIndex = 0;
 
 function startSinglePlayerGame() {
+  const ts = 32;
   const allLevels = [
-    { mapKey: "level1", ability: "crouch", owner: 1 },
-    { mapKey: "level2", ability: "levitate", owner: 1 },
-    { mapKey: "level3", ability: "glide", owner: 1 },
-    { mapKey: "level4", ability: "shatter", owner: 2 },
-    { mapKey: "level5", ability: "dash", owner: 2 },
-    { mapKey: "level6", ability: "drone", owner: 2 },
+    {
+      mapKey: "level1",
+      ability: "crouch",
+      owner: 1,
+      spawnX: 6 * ts,
+      spawnY: 49 * ts,
+    },
+    {
+      mapKey: "level2",
+      ability: "levitate",
+      owner: 1,
+      spawnX: 6 * ts,
+      spawnY: 49 * ts,
+    },
+    {
+      mapKey: "level3",
+      ability: "glide",
+      owner: 1,
+      spawnX: 6 * ts,
+      spawnY: 11 * ts,
+    },
+    {
+      mapKey: "level4",
+      ability: "shatter",
+      owner: 2,
+      spawnX: 4 * ts,
+      spawnY: 84 * ts,
+    },
+    {
+      mapKey: "level5",
+      ability: "dash",
+      owner: 2,
+      spawnX: 6 * ts,
+      spawnY: 89 * ts,
+    },
+    {
+      mapKey: "level6",
+      ability: "drone",
+      owner: 2,
+      spawnX: 6 * ts,
+      spawnY: 17 * ts,
+    },
   ];
 
   singlePlayerLevelQueue = Phaser.Utils.Array.Shuffle(allLevels);
@@ -996,6 +1131,10 @@ function createSinglePlayer() {
   setLocalStorage();
   updateKeybinds();
 
+  //grah
+  console.log("setp2");
+  localPlayer.setTexture("p2");
+
   this.pausePhysics = false;
 
   // this.music = this.sound.add("music");
@@ -1008,6 +1147,22 @@ function createSinglePlayer() {
   // } else {
   //   this.music.pause();
   // }
+  //level skipping, comment out for final build
+
+  if (levelTimerInterval) {
+    clearInterval(levelTimerInterval);
+  }
+  startTime = Date.now();
+
+  levelTimerInterval = setInterval(function () {
+    levelTimer = Date.now() - startTime;
+    document.getElementById("timer").innerHTML =
+      (levelTimer / 1000).toFixed(0) + "s";
+  }, 100);
+
+  this.input.keyboard.on("keydown-Z", function (event) {
+    loadNextSingleLevel();
+  });
 
   createAnimations(scene);
   loadNextSingleLevel();
@@ -1015,7 +1170,10 @@ function createSinglePlayer() {
 
 function loadNextSingleLevel() {
   if (currentSingleLevelIndex >= singlePlayerLevelQueue.length) {
-    showGameClearScreen();
+    if (levelTimerInterval) {
+      clearInterval(levelTimerInterval);
+    }
+    gameClearedUI(levelTimer);
     return;
   }
 
@@ -1024,12 +1182,26 @@ function loadNextSingleLevel() {
   const levelData = singlePlayerLevelQueue[currentSingleLevelIndex];
 
   const map = scene.make.tilemap({ key: levelData.mapKey });
+  singlePlayerCurrentMap = map;
   const tilesets = map.tilesets.map((ts) =>
     map.addTilesetImage(ts.name, ts.name),
   );
 
   currentMap = levelData.mapKey;
   myLevelAbility = levelData.ability;
+  localPlayer.crouchActive = false;
+  localPlayer.levitateActive = false;
+  localPlayer.glideActive = false;
+  localPlayer.shatterActive = false;
+  localPlayer.dashActive = false;
+  localPlayer.droneActive = false;
+
+  //build new player
+  if (levelData.owner == 1) {
+    localPlayer.setTexture("p1");
+  } else {
+    localPlayer.setTexture("p2");
+  }
 
   [world1W, world1H] = buildLevel({
     map,
@@ -1038,14 +1210,20 @@ function loadNextSingleLevel() {
     owner: levelData.owner,
     offsetX: 0,
     offsetY: 0,
-    spawnX: 256,
-    spawnY: 256,
+    spawnX: levelData.spawnX,
+    spawnY: levelData.spawnY,
     mapName: levelData.mapKey,
     scene,
     camTop: scene.cameras.main,
-    camBottom: null,
+    camBottom: camBottom,
     ability: levelData.ability,
   });
+  spawnXp1 = levelData.spawnX;
+  spawnYp1 = levelData.spawnY;
+  currentPlayer = levelData.owner;
+
+  localPlayer.setPosition(levelData.spawnX, levelData.spawnY);
+  gotAbility = false;
 
   const animatedTiles1 = getAnimatedTiles(map);
   mapAnimatedTiles1 = getAllMapAnimatedTiles(
@@ -1053,181 +1231,192 @@ function loadNextSingleLevel() {
     animatedTiles1,
   );
 
-  spawnXp1 = levelData.spawnX;
-  spawnYp1 = levelData.spawnY;
-
-  localPlayer.setPosition(256, 256);
-
   resizeCamerasOnly();
+  setPhysicsOn(localPlayer, true);
 
   currentSingleLevelIndex++;
 }
+
+let singlePlayerCooldownDone = true;
+let singlePlayerIsCurrentlyHolding = false;
+let singlePlayerAbilityTimer = null;
 function updateSinglePlayer(time, delta) {
   if (!localPlayer || isChangingLevels) return;
 
   const body = localPlayer.body;
-
-  // --------------------------------------------------
-  // Basic Movement
-  // --------------------------------------------------
-
-  let moveSpeed = 200;
-
-  if (leftBtnActive || scene.cursors.left.isDown) {
-    body.setVelocityX(-moveSpeed);
-    localPlayer.flipX = true;
-
-    if (!localPlayer.anims.isPlaying) {
-      localPlayer.anims.play("p1run", true);
-    }
-  } else if (rightBtnActive || scene.cursors.right.isDown) {
-    body.setVelocityX(moveSpeed);
-    localPlayer.flipX = false;
-
-    if (!localPlayer.anims.isPlaying) {
-      localPlayer.anims.play("p1run", true);
-    }
-  } else {
-    body.setVelocityX(0);
-    localPlayer.anims.stop();
-    localPlayer.setFrame(0);
+  if (scene.restartKey.isDown) {
+    localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+    localPlayer.setVelocity(0, 0);
   }
-
-  // --------------------------------------------------
-  // Jumping
-  // --------------------------------------------------
-
-  const onGround = body.blocked.down;
-
-  if (
-    jumpBtnActive ||
-    Phaser.Input.Keyboard.JustDown(scene.cursors.up) /* &&
-    onGround*/
-  ) {
-    body.setVelocityY(-400);
-  }
-
-  // --------------------------------------------------
-  // Ability Handling
-  // --------------------------------------------------
-
-  if (abilityBtnActive && gotAbility) {
-    switch (myLevelAbility) {
-      case "crouch":
-        if (!localPlayer.crouchActive) {
-          abilities.crouch.activate({
-            abilityOwner: 1,
-            duration: 3000,
-          });
-
-          scene.time.delayedCall(3000, () => {
-            abilities.crouch.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-
-      case "levitate":
-        if (!localPlayer.levitateActive) {
-          abilities.levitate.activate({
-            abilityOwner: 1,
-            duration: 3000,
-          });
-
-          scene.time.delayedCall(3000, () => {
-            abilities.levitate.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-
-      case "glide":
-        if (!localPlayer.glideActive) {
-          abilities.glide.activate({
-            abilityOwner: 1,
-            duration: 3000,
-          });
-
-          scene.time.delayedCall(3000, () => {
-            abilities.glide.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-
-      case "shatter":
-        if (!localPlayer.shatterActive) {
-          abilities.shatter.activate({
-            abilityOwner: 1,
-            duration: 3000,
-          });
-
-          scene.time.delayedCall(3000, () => {
-            abilities.shatter.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-
-      case "dash":
-        if (!localPlayer.dashActive) {
-          abilities.dash.activate({
-            abilityOwner: 1,
-            duration: 1000,
-          });
-
-          // dash impulse
-          body.setVelocityX(localPlayer.flipX ? -500 : 500);
-
-          scene.time.delayedCall(1000, () => {
-            abilities.dash.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-
-      case "drone":
-        if (!localPlayer.droneActive) {
-          abilities.drone.activate({
-            abilityOwner: 1,
-            x: localPlayer.x,
-            y: localPlayer.y,
-            usage: 1,
-            duration: 5000,
-          });
-
-          scene.time.delayedCall(5000, () => {
-            abilities.drone.deactivate({ abilityOwner: 1 });
-          });
-        }
-        break;
-    }
-
-    abilityBtnActive = false;
-  }
-
-  // --------------------------------------------------
-  // Levitate Physics Override
-  // --------------------------------------------------
-
+  let moveSpeed = 360;
   if (localPlayer.levitateActive) {
     body.setVelocityY(-100);
   }
-
-  // --------------------------------------------------
-  // Glide Physics Override
-  // --------------------------------------------------
-
-  if (localPlayer.glideActive && body.velocity.y > 0) {
+  if (localPlayer.glideActive) {
     body.setVelocityY(50);
   }
+  if (localPlayer.dashActive) {
+    moveSpeed = 1500;
+  }
+  if (leftBtnActive || this.leftKey.isDown) {
+    body.setVelocityX(-moveSpeed);
+    localPlayer.flipX = true;
+  } else if (rightBtnActive || this.rightKey.isDown) {
+    body.setVelocityX(moveSpeed);
+    localPlayer.flipX = false;
+  } else {
+    body.setVelocityX(0);
+  }
 
-  // --------------------------------------------------
-  // Death Check (fallback safety)
-  // --------------------------------------------------
+  //do anims logic haha :sob: if else chain of doom ahh
+  if (localPlayer.levitateActive) {
+    localPlayer.anims.play("p1levitate", true);
+  } else if (localPlayer.glideActive) {
+    const currentKey = localPlayer.anims.currentAnim
+      ? localPlayer.anims.currentAnim.key
+      : "";
+
+    if (currentKey !== "p1glideOpen") {
+      localPlayer.anims.play("p1glideActive", true);
+    }
+  } else if (localPlayer.shatterActive) {
+    localPlayer.anims.play("p2shatter", true);
+  } else if (localPlayer.dashActive) {
+    const currentKey = localPlayer.anims.currentAnim
+      ? localPlayer.anims.currentAnim.key
+      : "";
+
+    if (currentKey !== "p2dashOpen") {
+      localPlayer.anims.play("p2dashActive", true);
+    }
+  } else if (this.rightKey.isDown || rightBtnActive) {
+    if (currentPlayer == 1) {
+      localPlayer.anims.play("p1run", true);
+    } else {
+      localPlayer.anims.play("p2run", true);
+    }
+  } else if (this.leftKey.isDown || leftBtnActive) {
+    if (currentPlayer == 1) {
+      localPlayer.anims.play("p1run", true);
+    } else {
+      localPlayer.anims.play("p2run", true);
+    }
+  } else {
+    if (localPlayer.anims.isPlaying) {
+      if (
+        localPlayer.anims.currentAnim.key == "p1run" ||
+        localPlayer.anims.currentAnim.key == "p2run"
+      ) {
+        localPlayer.anims.stop();
+        localPlayer.setFrame(0);
+      }
+    }
+  }
+
+  let oppositeCurrentPlayer = currentPlayer == 1 ? 2 : 1;
+
+  if (localPlayer.body.blocked.down) {
+    coyote = true;
+    if (coyoteTimeout) {
+      clearTimeout(coyoteTimeout);
+    }
+    coyoteTimeout = setTimeout(function () {
+      coyote = false;
+    }, 150);
+  }
+  const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
+
+  if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
+    if (localPlayer.crouchActive) {
+      localPlayer.setVelocityY(-270);
+    } else {
+      localPlayer.setVelocityY(-400);
+    }
+  }
+
+  const isAbilityInputDown =
+    (scene.abilityKey?.isDown || abilityBtnActive) && gotAbility;
+  const config = ABILITY_CONFIG_SINGLE[myLevelAbility];
+
+  if (
+    isAbilityInputDown &&
+    singlePlayerCooldownDone &&
+    !singlePlayerIsCurrentlyHolding
+  ) {
+    singlePlayerIsCurrentlyHolding = true;
+
+    if (myLevelAbility === "drone") {
+      if (singlePlayerDroneUsage < 5) {
+        singlePlayerDroneUsage++;
+        abilities[myLevelAbility]?.activate({
+          abilityOwner: oppositeCurrentPlayer,
+          x: localPlayer.x,
+          y: localPlayer.y,
+          usage: singlePlayerDroneUsage,
+          duration: config.duration,
+        });
+      }
+    } else {
+      abilities[myLevelAbility]?.activate({
+        abilityOwner: oppositeCurrentPlayer,
+        duration: config.duration,
+      });
+    }
+
+    if (config.duration && config.duration !== Infinity) {
+      if (singlePlayerAbilityTimer) clearTimeout(singlePlayerAbilityTimer);
+
+      singlePlayerAbilityTimer = setTimeout(() => {
+        if (singlePlayerIsCurrentlyHolding) {
+          triggerSinglePlayerDeactivation();
+        }
+      }, config.duration);
+    }
+  }
+
+  if (!isAbilityInputDown && singlePlayerIsCurrentlyHolding) {
+    triggerSinglePlayerDeactivation();
+  }
+
+  function triggerSinglePlayerDeactivation() {
+    singlePlayerIsCurrentlyHolding = false;
+    singlePlayerCooldownDone = false;
+
+    if (singlePlayerAbilityTimer) {
+      clearTimeout(singlePlayerAbilityTimer);
+      singlePlayerAbilityTimer = null;
+    }
+
+    abilities[myLevelAbility]?.deactivate({
+      abilityOwner: oppositeCurrentPlayer,
+    });
+
+    const cooldownTime = config.cooldown;
+    let counter = cooldownTime / 1000;
+    let abilityText =
+      myLevelAbility.charAt(0).toUpperCase() + myLevelAbility.slice(1);
+
+    const cooldownInterval = setInterval(() => {
+      updateMessages([], "", true);
+      updateMessages([], "", false);
+      updateMessages(
+        ["red"],
+        abilityText + " cooling down: " + counter.toFixed(1) + "s",
+        true,
+      );
+      counter -= 0.1;
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(cooldownInterval);
+      updateMessages([], "", true);
+      singlePlayerCooldownDone = true;
+    }, cooldownTime);
+  }
 
   if (localPlayer.y > scene.physics.world.bounds.height + 200) {
     deathReset();
   }
-
-  // --------------------------------------------------
-  // Animated Tiles
-  // --------------------------------------------------
 
   updateTileAnimations(mapAnimatedTiles1, delta);
 }
@@ -1262,7 +1451,6 @@ socket.on("startGame", (roomData) => {
 
   document.getElementById("particles").style.display = "none";
 
-  // console.log(roomData.users[socket.id].player === 1);
   isPlayer1 = roomData.users[socket.id].player === 1;
   room = roomData;
   var config = {
@@ -1285,7 +1473,6 @@ socket.on("startGame", (roomData) => {
 });
 
 socket.on("deathReset", (data) => {
-  //only for remote player
   if (!scene) return;
   remotePlayer.setTint(0xff0000);
   setTimeout(function () {
@@ -1293,12 +1480,12 @@ socket.on("deathReset", (data) => {
   }, 1000);
 });
 function deathReset() {
-  //   console.log("death reset fct");
   localPlayer.setTint(0xff0000);
   scene.pausePhysics = true;
   setPhysicsOn(localPlayer, false);
-  socket.emit("deathReset", { room: roomCode });
-
+  if (!isSinglePlayer) {
+    socket.emit("deathReset", { room: roomCode });
+  }
   setTimeout(function () {
     localPlayer.clearTint();
     scene.pausePhysics = false;
@@ -1306,10 +1493,12 @@ function deathReset() {
 
     localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
     localPlayer.setVelocity(0, 0);
-    if (currentLevelName == "level6") {
+    if (currentLevelName == "level6" && !isSinglePlayer) {
       socket.emit("droneRecharge", {
         room: roomCode,
       });
+    } else {
+      singlePlayerDroneUsage = 0;
     }
   }, 1000);
 }
@@ -1324,7 +1513,7 @@ function getAnimatedTiles(map) {
         animatedTiles.push({
           tileset,
           frames: tileData.animation.map((f) => ({
-            tileid: f.tileid + tileset.firstgid, // adjust for tileset GID
+            tileid: f.tileid + tileset.firstgid,
             duration: f.duration,
           })),
         });
@@ -1392,7 +1581,7 @@ function updateTileAnimations(mapAnimatedTiles, delta) {
         const nextFrame = tileAnim.frames[tileAnim.currentFrame];
 
         tileAnim.tile.index = nextFrame.tileid;
-        tileAnim.tile.setCollision(DEATH_TILES.includes(nextFrame.tileid));
+        // tileAnim.tile.setCollision(DEATH_TILES.includes(nextFrame.tileid));
       }
     } catch (err) {
       mapAnimatedTiles.splice(i, 1);
@@ -1436,21 +1625,6 @@ function buildLevel({
   camBottom,
   ability,
 }) {
-  console.log({
-    map,
-    mapKey,
-    tilesets,
-    owner,
-    offsetX,
-    offsetY,
-    spawnX,
-    spawnY,
-    mapName,
-    scene,
-    camTop,
-    camBottom,
-    ability,
-  });
   //   console.log("build level fct");
   const layers = [];
   const colliders = [];
@@ -1463,21 +1637,28 @@ function buildLevel({
     layers.push(layer);
 
     // Camera visibility && ability setting
-    if (isLocalOwner && !isSinglePlayer) {
+    if (isSinglePlayer) {
       camBottom.ignore(layer);
       myLevelAbility = ability;
       currentLevelName = mapKey;
-      // spawnXGlobal = spawnX;
-      // spawnYGlobal = spawnY;
-      // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-      // updateMessages(["purple"], "Current Level: " + mapName, true);
+      spawnXGlobal = spawnX;
+      spawnYGlobal = spawnY;
     } else {
-      camTop.ignore(layer);
-      otherLevelAbility = ability;
-      otherLevelName = mapKey;
-      // updateMessages(["purple"], "Current Level: " + mapName, false);
+      if (isLocalOwner) {
+        camBottom.ignore(layer);
+        myLevelAbility = ability;
+        currentLevelName = mapKey;
+        // spawnXGlobal = spawnX;
+        // spawnYGlobal = spawnY;
+        // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+        // updateMessages(["purple"], "Current Level: " + mapName, true);
+      } else {
+        camTop.ignore(layer);
+        otherLevelAbility = ability;
+        otherLevelName = mapKey;
+        // updateMessages(["purple"], "Current Level: " + mapName, false);
+      }
     }
-
     // if (!isLocalOwner) return;
     if (layerData.name == "Deco" || layerData.name == "Deco 2") {
       if (layerTints[mapKey]["tint"] != -1) {
@@ -1495,7 +1676,7 @@ function buildLevel({
       layer.setVisible(false);
     }
 
-    if (isLocalOwner) {
+    if (isLocalOwner || isSinglePlayer) {
       if (layerData.name === "HB") {
         // layer.setVisible(false);
         layer.setCollisionByProperty({ collides: true });
@@ -1503,7 +1684,6 @@ function buildLevel({
         const collider = scene.physics.add.collider(localPlayer, layer);
         colliders.push(collider);
       } else if (layerData.name === "Win") {
-        //layer.setVisible(false);
         const overlap = scene.physics.add.overlap(
           localPlayer,
           layer,
@@ -1511,22 +1691,23 @@ function buildLevel({
             if (isChangingLevels) return;
             if (!tile || !tile.layer || !tile.layer.tilemapLayer) return;
             if (tile.index === -1) return false;
-            //stop gamwin spamming
+
             if (touchedWinAlr) return;
             touchedWinAlr = true;
-            socket.emit("gameWinUpdate", {
-              room: roomCode,
-              touching: true,
-            });
-            /*  setTimeout(function () {
-                            socket.emit("gameWinUpdate", {
-                                room: roomCode,
-                                touching: false,
-                            });
-                        }, 500);*/
+
+            if (isSinglePlayer) {
+              scene.time.delayedCall(0, () => {
+                loadNextSingleLevel();
+              });
+              // console.log("win activated");
+            } else {
+              socket.emit("gameWinUpdate", {
+                room: roomCode,
+                touching: true,
+              });
+            }
           },
         );
-        // console.log("Created overlap", overlap);
         colliders.push(overlap);
       } else if (layerData.name === "Death") {
         //layer.setVisible(false);
@@ -1552,16 +1733,28 @@ function buildLevel({
             if (!tile || !tile.layer || !tile.layer.tilemapLayer) return;
             if (isChangingLevels) return;
             if (!gotAbility) {
-              socket.emit("abilityPickup", {
-                room: roomCode,
-                state: true,
-              });
+              if (isSinglePlayer) {
+                gotAbility = true;
+                let abilityText = myLevelAbility.replace(/^./, (char) =>
+                  char.toUpperCase(),
+                );
+                updateMessages(
+                  ["blue"],
+                  "Ability Gained: " + abilityText,
+                  true,
+                );
+              } else {
+                socket.emit("abilityPickup", {
+                  room: roomCode,
+                  state: true,
+                });
+              }
             }
           },
         );
         // console.log("Created overlap", overlap);
         colliders.push(overlap);
-      } else if (layerData.name === "Teleport") {
+      } /*else if (layerData.name === "Teleport") {
         //layer.setVisible(false);
         const overlap = scene.physics.add.overlap(
           localPlayer,
@@ -1575,7 +1768,7 @@ function buildLevel({
         );
         // console.log("Created overlap", overlap);
         colliders.push(overlap);
-      } else if (layerData.name === "BB") {
+      } */ else if (layerData.name === "BB") {
         layer.setCollisionByProperty({ collides: true });
         layer.setCollisionByExclusion([-1]);
         const overlap = scene.physics.add.collider(
@@ -1591,15 +1784,24 @@ function buildLevel({
             );
 
             adjacentTiles.forEach((tile) => {
-              //tile.layer.tilemapLayer.removeTileAt(tile.x, tile.y);
-              socket.emit("destroyBlock", {
-                room: roomCode,
-                mapId: mapKey, //need to rework this
-                layer: tile.layer.name,
-                activatedBy: socket.id,
-                x: tile.x,
-                y: tile.y,
-              });
+              if (isSinglePlayer) {
+                // tile.layer.tilemapLayer.removeTileAt(tile.x, tile.y);
+                destroyBlockSinglePlayer({
+                  mapId: mapKey,
+                  layer: tile.layer.name,
+                  x: tile.x,
+                  y: tile.y,
+                });
+              } else {
+                socket.emit("destroyBlock", {
+                  room: roomCode,
+                  mapId: mapKey, //need to rework this
+                  layer: tile.layer.name,
+                  activatedBy: socket.id,
+                  x: tile.x,
+                  y: tile.y,
+                });
+              }
             });
           },
         );
@@ -1614,9 +1816,14 @@ function buildLevel({
             if (tile.index === -1) return false;
             if (!tile || !tile.layer || !tile.layer.tilemapLayer) return;
             if (isChangingLevels) return;
-            socket.emit("droneRecharge", {
-              room: roomCode,
-            });
+            if (isSinglePlayer) {
+              singlePlayerDroneUsage = 0;
+              updateMessages(["green"], "Drone Recharged", true);
+            } else {
+              socket.emit("droneRecharge", {
+                room: roomCode,
+              });
+            }
           },
         );
         // console.log("Created overlap", overlap);
@@ -1652,7 +1859,7 @@ function buildLevel({
     block.setSize(obj.width, obj.height);
     block.refreshBody();
   });
-  if (isLocalOwner) {
+  if (isLocalOwner || isSinglePlayer) {
     try {
       camBottom.ignore(checkpointsGroup.getChildren());
     } catch (e) {
@@ -1666,7 +1873,7 @@ function buildLevel({
     }
   }
 
-  if (isLocalOwner) {
+  if (isLocalOwner || isSinglePlayer) {
     try {
       checkpointOverlap = scene.physics.add.overlap(
         localPlayer,
@@ -1707,7 +1914,7 @@ function buildLevel({
       block.usedJump = false;
       block.setSize(obj.width, obj.height);
     });
-    if (isPlayer1) {
+    if (isPlayer1 || isSinglePlayer) {
       //only happens on p1 anyways
       jumpOverlap = scene.physics.add.overlap(
         localPlayer,
@@ -1750,7 +1957,7 @@ function buildLevel({
   }
 
   // obj death
-  if (isLocalOwner) {
+  if (isLocalOwner || isSinglePlayer) {
     const deathLayer = map.getObjectLayer("ObjDeath");
     deathGroup = scene.physics.add.staticGroup();
 
@@ -1877,6 +2084,15 @@ socket.on("getPosition", (data) => {
     // activatedBy: data.activatedBy,
   });
 });
+function destroyBlockSinglePlayer(data) {
+  if (gotAbility && localPlayer.shatterActive) {
+    const map = singlePlayerCurrentMap;
+    if (!map) return;
+    const layer = map.getLayer(data.layer)?.tilemapLayer;
+    if (!layer) return;
+    layer.removeTileAt(data.x, data.y);
+  }
+}
 socket.on("destroyBlock", (data) => {
   const map = maps[data.mapId];
   if (!map) return;
@@ -1989,6 +2205,8 @@ function gameClearedUI(ms) {
 
   //return to home
   document.getElementById("gameOverlay").style.display = "block";
+  document.getElementById("pauseBtn").style.display = "none";
+
   setTimeout(function () {
     document.getElementById("gameOverlay").style.opacity = "1";
   }, 50);
@@ -2014,6 +2232,8 @@ function gameClearedUI(ms) {
       document.getElementById("join").style.display = "block";
       document.getElementById("leaveBtn").style.display = "none";
       document.getElementById("copyLink").style.display = "none";
+      document.getElementById("pauseBtn").style.display = "block";
+
       if (game) {
         game.destroy();
         game = null;
@@ -2136,6 +2356,7 @@ function resizeCamerasOnly() {
     mapWidth = world1W;
     mapHeight = world1H;
     // currentMap = currentMapKey1;
+    camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
   } else {
     if (currentPlayer === 1) {
       // console.log("world1 dimen: " + world1W / 32 + ", " + world1H / 32);
@@ -2156,20 +2377,28 @@ function resizeCamerasOnly() {
       currentMap = currentMapKey2;
       // console.log("settingworldbounds");
     }
+    // Camera visibility
   }
-
-  // Camera visibility
   const isMain =
     (isPlayer1 && currentPlayer === 1) || (!isPlayer1 && currentPlayer === 2);
+  if (isSinglePlayer) {
+    camTop.setVisible(true);
+    camBottom.setVisible(false);
 
-  camTop.setVisible(isMain);
-  camBottom.setVisible(!isMain);
+    camTop.setViewport(0, 0, scene.gameWidth, scene.gameHeight);
+    camBottom.setViewport(0, 0, 0, 0);
+  } else {
+    camTop.setVisible(isMain);
+    camBottom.setVisible(!isMain);
 
-  camTop.setViewport(0, 0, isMain ? scene.gameWidth : 0, scene.gameHeight);
-  camBottom.setViewport(0, 0, isMain ? 0 : scene.gameWidth, scene.gameHeight);
-
+    camTop.setViewport(0, 0, isMain ? scene.gameWidth : 0, scene.gameHeight);
+    camBottom.setViewport(0, 0, isMain ? 0 : scene.gameWidth, scene.gameHeight);
+  }
   // Backgrounds
-  const bgKey = isMain ? currentLevelName : otherLevelName;
+  let bgKey = isMain ? currentLevelName : otherLevelName;
+  if (isSinglePlayer) {
+    bgKey = currentLevelName;
+  }
 
   if (scene[bgKey + "bg"]) {
     scene[bgKey + "bg"].forEach((bg) => bg.destroy());
@@ -2189,10 +2418,12 @@ function resizeCamerasOnly() {
       (cameraHeight + (mapHeight - cameraHeight) * bg.factor) / image.height;
 
     image.setScale(Math.max(scaleX, scaleY) * 2);
-
-    if (isMain) camBottom.ignore(image);
-    else camTop.ignore(image);
-
+    if (isSinglePlayer) {
+      camBottom.ignore(image);
+    } else {
+      if (isMain) camBottom.ignore(image);
+      else camTop.ignore(image);
+    }
     backgrounds.push(image);
   });
 
@@ -2638,14 +2869,18 @@ abilityBtn.addEventListener("pointerdown", (e) => {
 
   if (!abilityPressed) {
     abilityPressed = true;
-    socket.emit("abilityActivated", {
-      room: roomCode,
-      abilityOwner: isPlayer1 ? 2 : 1,
-      type: otherLevelAbility,
-      activatedBy: socket.id,
-      x: remotePlayer.x,
-      y: remotePlayer.y,
-    });
+    if (isSinglePlayer) {
+      // {FINISH THIS ONCE I'M DONE WITH EVERYTHING}
+    } else {
+      socket.emit("abilityActivated", {
+        room: roomCode,
+        abilityOwner: isPlayer1 ? 2 : 1,
+        type: otherLevelAbility,
+        activatedBy: socket.id,
+        x: remotePlayer.x,
+        y: remotePlayer.y,
+      });
+    }
   }
 });
 
