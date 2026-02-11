@@ -495,6 +495,13 @@ button:disabled {
   text-shadow: 0 0 10px black;
   font-size: 3em;
 }
+#singlePlayerBtn {
+  top: 1.5em;
+  right: 1.5em;
+  color: white;
+  text-shadow: 0 0 10px black;
+  font-size: 3em;
+}
 
 #infoBtn {
   bottom: 1em;
@@ -514,6 +521,7 @@ button:disabled {
 }
 #infoBtn:hover,
 #matchmakingBtn:hover,
+#singlePlayerBtn:hover,
 #infoClose:hover {
   color: #bfbfbf;
 }

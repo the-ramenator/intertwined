@@ -806,6 +806,456 @@ socket.on("errorMessage", (msg) => {
 });
 let room = {};
 var game;
+document
+  .getElementById("singlePlayerBtn")
+  .addEventListener("click", function () {
+    isSinglePlayer = true;
+
+    document.getElementById("setupContainer").style.display = "none";
+    document.getElementById("gameContainer").style.display = "block";
+    document.getElementById("particles").style.display = "none";
+
+    startSinglePlayerGame();
+  });
+let singlePlayerLevelQueue = [];
+let currentSingleLevelIndex = 0;
+
+function startSinglePlayerGame() {
+  const allLevels = [
+    { mapKey: "level1", ability: "crouch", owner: 1 },
+    { mapKey: "level2", ability: "levitate", owner: 1 },
+    { mapKey: "level3", ability: "glide", owner: 1 },
+    { mapKey: "level4", ability: "shatter", owner: 2 },
+    { mapKey: "level5", ability: "dash", owner: 2 },
+    { mapKey: "level6", ability: "drone", owner: 2 },
+  ];
+
+  singlePlayerLevelQueue = Phaser.Utils.Array.Shuffle(allLevels);
+  currentSingleLevelIndex = 0;
+
+  createPhaserGame();
+}
+function createAnimations(scene) {
+  scene.anims.create({
+    key: "flower",
+    frames: scene.anims.generateFrameNumbers("flowerSheet", {
+      start: 0,
+      end: 7,
+    }),
+    frameRate: 5,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: "checkpointAnim",
+    frames: scene.anims.generateFrameNumbers("CheckpointTileset", {
+      start: 0,
+      end: 1,
+    }),
+    frameRate: 20,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: "p1run",
+    frames: scene.anims.generateFrameNumbers("p1", {
+      start: 1,
+      end: 4,
+    }),
+    frameRate: 17,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p1glideOpen",
+    frames: scene.anims.generateFrameNumbers("p1", {
+      start: 5,
+      end: 10,
+    }),
+    frameRate: 9,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: "p1glideActive",
+    frames: scene.anims.generateFrameNumbers("p1", {
+      start: 11,
+      end: 15,
+    }),
+    frameRate: 9,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p1levitate",
+    frames: scene.anims.generateFrameNumbers("p1", {
+      start: 16,
+      end: 27,
+    }),
+    frameRate: 7,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p1jump",
+    frames: scene.anims.generateFrameNumbers("p1", {
+      start: 28,
+      end: 29,
+    }),
+    frameRate: 17,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p2run",
+    frames: scene.anims.generateFrameNumbers("p2", {
+      start: 1,
+      end: 4,
+    }),
+    frameRate: 17,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p2jump",
+    frames: scene.anims.generateFrameNumbers("p2", {
+      start: 5,
+      end: 6,
+    }),
+    frameRate: 17,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p2dashOpen",
+    frames: scene.anims.generateFrameNumbers("p2", {
+      start: 7,
+      end: 11,
+    }),
+    frameRate: 9,
+    repeat: 0,
+  });
+  scene.anims.create({
+    key: "p2dashActive",
+    frames: scene.anims.generateFrameNumbers("p2", {
+      start: 12,
+      end: 19,
+    }),
+    frameRate: 9,
+    repeat: -1,
+  });
+  scene.anims.create({
+    key: "p2shatter",
+    frames: scene.anims.generateFrameNumbers("p2", {
+      start: 20,
+      end: 23,
+    }),
+    frameRate: 17,
+    repeat: -1,
+  });
+}
+
+function createSinglePlayer() {
+  scene = this;
+  this.physics.world.TILE_BIAS = 32;
+
+  const p1Sprite = this.physics.add.sprite(0, 0, "p1");
+  const p2Sprite = this.physics.add.sprite(0, 0, "p2");
+
+  camTop = this.cameras.main;
+  camTop.setViewport(0, 0, 50, 50);
+
+  camBottom = this.cameras.add(0, 50, 50, 50);
+  //0.7
+  camTop.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
+  camBottom.zoomTo(0.7, 2000, Phaser.Math.Easing.Back.Out);
+
+  // camTop.setBackgroundColor("#00FF00");
+  // camBottom.setBackgroundColor("#FFFF00");
+  localPlayer = p1Sprite;
+  remotePlayer = p2Sprite;
+  camTop.startFollow(localPlayer);
+  camBottom.startFollow(remotePlayer);
+
+  camTop.ignore(remotePlayer);
+  camBottom.ignore(localPlayer);
+
+  remotePlayer.setCollideWorldBounds(true);
+  localPlayer.setCollideWorldBounds(true);
+
+  remotePlayer.body.moves = false;
+  remotePlayer.body.immovable = true;
+
+  //socket events
+  remoteTargetX = 0;
+  remoteTargetY = 0;
+
+  //drone platforms
+  dronePlatforms = this.physics.add.staticGroup();
+  this.physics.add.collider(localPlayer, dronePlatforms);
+
+  // generate Levels
+
+  this.lastSend = 0;
+
+  this.cursors = this.input.keyboard.createCursorKeys();
+
+  this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+
+  setLocalStorage();
+  updateKeybinds();
+
+  this.pausePhysics = false;
+
+  // this.music = this.sound.add("music");
+  // this.music.setLoop(true);
+  // if (localStorage.getItem("soundOn") == null) {
+  //   localStorage.setItem("soundOn", true);
+  // }
+  // if (localStorage.getItem("soundOn") == true) {
+  //   this.music.play();
+  // } else {
+  //   this.music.pause();
+  // }
+
+  createAnimations(scene);
+  loadNextSingleLevel();
+}
+
+function loadNextSingleLevel() {
+  if (currentSingleLevelIndex >= singlePlayerLevelQueue.length) {
+    showGameClearScreen();
+    return;
+  }
+
+  clearAllLevels(scene);
+
+  const levelData = singlePlayerLevelQueue[currentSingleLevelIndex];
+
+  const map = scene.make.tilemap({ key: levelData.mapKey });
+  const tilesets = map.tilesets.map((ts) =>
+    map.addTilesetImage(ts.name, ts.name),
+  );
+
+  currentMap = levelData.mapKey;
+  myLevelAbility = levelData.ability;
+
+  [world1W, world1H] = buildLevel({
+    map,
+    mapKey: levelData.mapKey,
+    tilesets,
+    owner: levelData.owner,
+    offsetX: 0,
+    offsetY: 0,
+    spawnX: 256,
+    spawnY: 256,
+    mapName: levelData.mapKey,
+    scene,
+    camTop: scene.cameras.main,
+    camBottom: null,
+    ability: levelData.ability,
+  });
+
+  const animatedTiles1 = getAnimatedTiles(map);
+  mapAnimatedTiles1 = getAllMapAnimatedTiles(
+    activeLevels[0].layers,
+    animatedTiles1,
+  );
+
+  spawnXp1 = levelData.spawnX;
+  spawnYp1 = levelData.spawnY;
+
+  localPlayer.setPosition(256, 256);
+
+  resizeCamerasOnly();
+
+  currentSingleLevelIndex++;
+}
+function updateSinglePlayer(time, delta) {
+  if (!localPlayer || isChangingLevels) return;
+
+  const body = localPlayer.body;
+
+  // --------------------------------------------------
+  // Basic Movement
+  // --------------------------------------------------
+
+  let moveSpeed = 200;
+
+  if (leftBtnActive || scene.cursors.left.isDown) {
+    body.setVelocityX(-moveSpeed);
+    localPlayer.flipX = true;
+
+    if (!localPlayer.anims.isPlaying) {
+      localPlayer.anims.play("p1run", true);
+    }
+  } else if (rightBtnActive || scene.cursors.right.isDown) {
+    body.setVelocityX(moveSpeed);
+    localPlayer.flipX = false;
+
+    if (!localPlayer.anims.isPlaying) {
+      localPlayer.anims.play("p1run", true);
+    }
+  } else {
+    body.setVelocityX(0);
+    localPlayer.anims.stop();
+    localPlayer.setFrame(0);
+  }
+
+  // --------------------------------------------------
+  // Jumping
+  // --------------------------------------------------
+
+  const onGround = body.blocked.down;
+
+  if (
+    jumpBtnActive ||
+    Phaser.Input.Keyboard.JustDown(scene.cursors.up) /* &&
+    onGround*/
+  ) {
+    body.setVelocityY(-400);
+  }
+
+  // --------------------------------------------------
+  // Ability Handling
+  // --------------------------------------------------
+
+  if (abilityBtnActive && gotAbility) {
+    switch (myLevelAbility) {
+      case "crouch":
+        if (!localPlayer.crouchActive) {
+          abilities.crouch.activate({
+            abilityOwner: 1,
+            duration: 3000,
+          });
+
+          scene.time.delayedCall(3000, () => {
+            abilities.crouch.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+
+      case "levitate":
+        if (!localPlayer.levitateActive) {
+          abilities.levitate.activate({
+            abilityOwner: 1,
+            duration: 3000,
+          });
+
+          scene.time.delayedCall(3000, () => {
+            abilities.levitate.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+
+      case "glide":
+        if (!localPlayer.glideActive) {
+          abilities.glide.activate({
+            abilityOwner: 1,
+            duration: 3000,
+          });
+
+          scene.time.delayedCall(3000, () => {
+            abilities.glide.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+
+      case "shatter":
+        if (!localPlayer.shatterActive) {
+          abilities.shatter.activate({
+            abilityOwner: 1,
+            duration: 3000,
+          });
+
+          scene.time.delayedCall(3000, () => {
+            abilities.shatter.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+
+      case "dash":
+        if (!localPlayer.dashActive) {
+          abilities.dash.activate({
+            abilityOwner: 1,
+            duration: 1000,
+          });
+
+          // dash impulse
+          body.setVelocityX(localPlayer.flipX ? -500 : 500);
+
+          scene.time.delayedCall(1000, () => {
+            abilities.dash.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+
+      case "drone":
+        if (!localPlayer.droneActive) {
+          abilities.drone.activate({
+            abilityOwner: 1,
+            x: localPlayer.x,
+            y: localPlayer.y,
+            usage: 1,
+            duration: 5000,
+          });
+
+          scene.time.delayedCall(5000, () => {
+            abilities.drone.deactivate({ abilityOwner: 1 });
+          });
+        }
+        break;
+    }
+
+    abilityBtnActive = false;
+  }
+
+  // --------------------------------------------------
+  // Levitate Physics Override
+  // --------------------------------------------------
+
+  if (localPlayer.levitateActive) {
+    body.setVelocityY(-100);
+  }
+
+  // --------------------------------------------------
+  // Glide Physics Override
+  // --------------------------------------------------
+
+  if (localPlayer.glideActive && body.velocity.y > 0) {
+    body.setVelocityY(50);
+  }
+
+  // --------------------------------------------------
+  // Death Check (fallback safety)
+  // --------------------------------------------------
+
+  if (localPlayer.y > scene.physics.world.bounds.height + 200) {
+    deathReset();
+  }
+
+  // --------------------------------------------------
+  // Animated Tiles
+  // --------------------------------------------------
+
+  updateTileAnimations(mapAnimatedTiles1, delta);
+}
+
+function createPhaserGame() {
+  var config = {
+    type: Phaser.AUTO,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    parent: "gameContainer",
+    physics: {
+      default: "arcade",
+      arcade: {
+        gravity: { y: 500 },
+        fps: 60,
+        debug: false,
+      },
+    },
+    scene: {
+      preload: preload,
+      create: createSinglePlayer,
+      update: updateSinglePlayer,
+    },
+  };
+
+  game = new Phaser.Game(config);
+}
+
 socket.on("startGame", (roomData) => {
   document.getElementById("setupContainer").style.display = "none";
   document.getElementById("gameContainer").style.display = "block";
@@ -986,6 +1436,21 @@ function buildLevel({
   camBottom,
   ability,
 }) {
+  console.log({
+    map,
+    mapKey,
+    tilesets,
+    owner,
+    offsetX,
+    offsetY,
+    spawnX,
+    spawnY,
+    mapName,
+    scene,
+    camTop,
+    camBottom,
+    ability,
+  });
   //   console.log("build level fct");
   const layers = [];
   const colliders = [];
@@ -998,7 +1463,7 @@ function buildLevel({
     layers.push(layer);
 
     // Camera visibility && ability setting
-    if (isLocalOwner) {
+    if (isLocalOwner && !isSinglePlayer) {
       camBottom.ignore(layer);
       myLevelAbility = ability;
       currentLevelName = mapKey;
@@ -1665,25 +2130,32 @@ function resizeCamerasOnly() {
   let cameraHeight = window.innerHeight;
 
   let mapWidth, mapHeight;
-
-  if (currentPlayer === 1) {
-    // console.log("world1 dimen: " + world1W / 32 + ", " + world1H / 32);
+  if (isSinglePlayer) {
     scene.physics.world.setBounds(0, 0, world1W, world1H);
     camTop.setBounds(0, 0, world1W, world1H);
-    camBottom.setBounds(0, 0, world1W, world1H);
     mapWidth = world1W;
     mapHeight = world1H;
-    currentMap = currentMapKey1;
-    // console.log("settingworldbounds");
+    // currentMap = currentMapKey1;
   } else {
-    // console.log("world2 dimen: " + world2W / 32 + ", " + world2H / 32);
-    scene.physics.world.setBounds(0, 0, world2W, world2H);
-    camTop.setBounds(0, 0, world2W, world2H);
-    camBottom.setBounds(0, 0, world2W, world2H);
-    mapWidth = world2W;
-    mapHeight = world2H;
-    currentMap = currentMapKey2;
-    // console.log("settingworldbounds");
+    if (currentPlayer === 1) {
+      // console.log("world1 dimen: " + world1W / 32 + ", " + world1H / 32);
+      scene.physics.world.setBounds(0, 0, world1W, world1H);
+      camTop.setBounds(0, 0, world1W, world1H);
+      camBottom.setBounds(0, 0, world1W, world1H);
+      mapWidth = world1W;
+      mapHeight = world1H;
+      currentMap = currentMapKey1;
+      // console.log("settingworldbounds");
+    } else {
+      // console.log("world2 dimen: " + world2W / 32 + ", " + world2H / 32);
+      scene.physics.world.setBounds(0, 0, world2W, world2H);
+      camTop.setBounds(0, 0, world2W, world2H);
+      camBottom.setBounds(0, 0, world2W, world2H);
+      mapWidth = world2W;
+      mapHeight = world2H;
+      currentMap = currentMapKey2;
+      // console.log("settingworldbounds");
+    }
   }
 
   // Camera visibility
@@ -2521,115 +2993,7 @@ function create() {
   } else {
     this.music.pause();
   }
-  this.anims.create({
-    key: "flower",
-    frames: this.anims.generateFrameNumbers("flowerSheet", {
-      start: 0,
-      end: 7,
-    }),
-    frameRate: 5,
-    repeat: 0,
-  });
-  this.anims.create({
-    key: "checkpointAnim",
-    frames: this.anims.generateFrameNumbers("CheckpointTileset", {
-      start: 0,
-      end: 1,
-    }),
-    frameRate: 20,
-    repeat: 0,
-  });
-  this.anims.create({
-    key: "p1run",
-    frames: this.anims.generateFrameNumbers("p1", {
-      start: 1,
-      end: 4,
-    }),
-    frameRate: 17,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p1glideOpen",
-    frames: this.anims.generateFrameNumbers("p1", {
-      start: 5,
-      end: 10,
-    }),
-    frameRate: 9,
-    repeat: 0,
-  });
-  this.anims.create({
-    key: "p1glideActive",
-    frames: this.anims.generateFrameNumbers("p1", {
-      start: 11,
-      end: 15,
-    }),
-    frameRate: 9,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p1levitate",
-    frames: this.anims.generateFrameNumbers("p1", {
-      start: 16,
-      end: 27,
-    }),
-    frameRate: 7,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p1jump",
-    frames: this.anims.generateFrameNumbers("p1", {
-      start: 28,
-      end: 29,
-    }),
-    frameRate: 17,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p2run",
-    frames: this.anims.generateFrameNumbers("p2", {
-      start: 1,
-      end: 4,
-    }),
-    frameRate: 17,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p2jump",
-    frames: this.anims.generateFrameNumbers("p2", {
-      start: 5,
-      end: 6,
-    }),
-    frameRate: 17,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p2dashOpen",
-    frames: this.anims.generateFrameNumbers("p2", {
-      start: 7,
-      end: 11,
-    }),
-    frameRate: 9,
-    repeat: 0,
-  });
-  this.anims.create({
-    key: "p2dashActive",
-    frames: this.anims.generateFrameNumbers("p2", {
-      start: 12,
-      end: 19,
-    }),
-    frameRate: 9,
-    repeat: -1,
-  });
-  this.anims.create({
-    key: "p2shatter",
-    frames: this.anims.generateFrameNumbers("p2", {
-      start: 20,
-      end: 23,
-    }),
-    frameRate: 17,
-    repeat: -1,
-  });
-
+  createAnimations(this);
   // this.input.keyboard.preventDefault = false;
 }
 document.getElementById("pauseBtn").addEventListener("click", function () {
