@@ -873,7 +873,7 @@ button:disabled {
 #mobileKeybinds:hover {
   background:
     linear-gradient(#fff, #fff) padding-box,
-    linear-gradient(to right, #000, #001ac9, #000) border-box;
+    linear-gradient(to right, #000, #001ac9, #000) border-box !important;
   box-shadow: 0 0 10px #fff;
   color: black;
 }

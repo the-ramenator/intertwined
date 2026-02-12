@@ -1268,182 +1268,195 @@ let singlePlayerAbilityTimer = null;
 function updateSinglePlayer(time, delta) {
   if (!localPlayer || isChangingLevels) return;
 
-  const body = localPlayer.body;
-  if (scene.restartKey.isDown) {
-    localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-    localPlayer.setVelocity(0, 0);
-  }
-  let moveSpeed = 360;
-  if (localPlayer.levitateActive) {
-    body.setVelocityY(-100);
-  }
-  if (localPlayer.glideActive) {
-    body.setVelocityY(50);
-  }
-  if (localPlayer.dashActive) {
-    moveSpeed = 1500;
-  }
-  if (leftBtnActive || this.leftKey.isDown) {
-    body.setVelocityX(-moveSpeed);
-    localPlayer.flipX = true;
-  } else if (rightBtnActive || this.rightKey.isDown) {
-    body.setVelocityX(moveSpeed);
-    localPlayer.flipX = false;
-  } else {
-    body.setVelocityX(0);
-  }
+  if (Phaser.Input.Keyboard.JustDown(this.pauseKey)) {
+    this.pausePhysics = !this.pausePhysics;
 
-  //do anims logic haha :sob: if else chain of doom ahh
-  if (localPlayer.levitateActive) {
-    localPlayer.anims.play("p1levitate", true);
-  } else if (localPlayer.glideActive) {
-    const currentKey = localPlayer.anims.currentAnim
-      ? localPlayer.anims.currentAnim.key
-      : "";
+    setPhysicsOn(localPlayer, !this.pausePhysics);
 
-    if (currentKey !== "p1glideOpen") {
-      localPlayer.anims.play("p1glideActive", true);
-    }
-  } else if (localPlayer.shatterActive) {
-    localPlayer.anims.play("p2shatter", true);
-  } else if (localPlayer.dashActive) {
-    const currentKey = localPlayer.anims.currentAnim
-      ? localPlayer.anims.currentAnim.key
-      : "";
-
-    if (currentKey !== "p2dashOpen") {
-      localPlayer.anims.play("p2dashActive", true);
-    }
-  } else if (this.rightKey.isDown || rightBtnActive) {
-    if (currentPlayer == 1) {
-      localPlayer.anims.play("p1run", true);
+    if (this.pausePhysics) {
+      showPause();
     } else {
-      localPlayer.anims.play("p2run", true);
+      hidePause();
     }
-  } else if (this.leftKey.isDown || leftBtnActive) {
-    if (currentPlayer == 1) {
-      localPlayer.anims.play("p1run", true);
+  }
+  if (!this.pausePhysics) {
+    const body = localPlayer.body;
+    if (scene.restartKey.isDown) {
+      localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+      localPlayer.setVelocity(0, 0);
+    }
+    let moveSpeed = 360;
+    if (localPlayer.levitateActive) {
+      body.setVelocityY(-100);
+    }
+    if (localPlayer.glideActive) {
+      body.setVelocityY(50);
+    }
+    if (localPlayer.dashActive) {
+      moveSpeed = 1500;
+    }
+    if (leftBtnActive || this.leftKey.isDown) {
+      body.setVelocityX(-moveSpeed);
+      localPlayer.flipX = true;
+    } else if (rightBtnActive || this.rightKey.isDown) {
+      body.setVelocityX(moveSpeed);
+      localPlayer.flipX = false;
     } else {
-      localPlayer.anims.play("p2run", true);
+      body.setVelocityX(0);
     }
-  } else {
-    if (localPlayer.anims.isPlaying) {
-      if (
-        localPlayer.anims.currentAnim.key == "p1run" ||
-        localPlayer.anims.currentAnim.key == "p2run"
-      ) {
-        localPlayer.anims.stop();
-        localPlayer.setFrame(0);
+
+    //do anims logic haha :sob: if else chain of doom ahh
+    if (localPlayer.levitateActive) {
+      localPlayer.anims.play("p1levitate", true);
+    } else if (localPlayer.glideActive) {
+      const currentKey = localPlayer.anims.currentAnim
+        ? localPlayer.anims.currentAnim.key
+        : "";
+
+      if (currentKey !== "p1glideOpen") {
+        localPlayer.anims.play("p1glideActive", true);
+      }
+    } else if (localPlayer.shatterActive) {
+      localPlayer.anims.play("p2shatter", true);
+    } else if (localPlayer.dashActive) {
+      const currentKey = localPlayer.anims.currentAnim
+        ? localPlayer.anims.currentAnim.key
+        : "";
+
+      if (currentKey !== "p2dashOpen") {
+        localPlayer.anims.play("p2dashActive", true);
+      }
+    } else if (this.rightKey.isDown || rightBtnActive) {
+      if (currentPlayer == 1) {
+        localPlayer.anims.play("p1run", true);
+      } else {
+        localPlayer.anims.play("p2run", true);
+      }
+    } else if (this.leftKey.isDown || leftBtnActive) {
+      if (currentPlayer == 1) {
+        localPlayer.anims.play("p1run", true);
+      } else {
+        localPlayer.anims.play("p2run", true);
+      }
+    } else {
+      if (localPlayer.anims.isPlaying) {
+        if (
+          localPlayer.anims.currentAnim.key == "p1run" ||
+          localPlayer.anims.currentAnim.key == "p2run"
+        ) {
+          localPlayer.anims.stop();
+          localPlayer.setFrame(0);
+        }
       }
     }
-  }
 
-  let oppositeCurrentPlayer = currentPlayer == 1 ? 2 : 1;
+    let oppositeCurrentPlayer = currentPlayer == 1 ? 2 : 1;
 
-  if (localPlayer.body.blocked.down) {
-    coyote = true;
-    if (coyoteTimeout) {
-      clearTimeout(coyoteTimeout);
+    if (localPlayer.body.blocked.down) {
+      coyote = true;
+      if (coyoteTimeout) {
+        clearTimeout(coyoteTimeout);
+      }
+      coyoteTimeout = setTimeout(function () {
+        coyote = false;
+      }, 150);
     }
-    coyoteTimeout = setTimeout(function () {
-      coyote = false;
-    }, 150);
-  }
-  const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
+    const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
 
-  if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
-    if (localPlayer.crouchActive) {
-      localPlayer.setVelocityY(-270);
-    } else {
-      localPlayer.setVelocityY(-400);
+    if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
+      if (localPlayer.crouchActive) {
+        localPlayer.setVelocityY(-270);
+      } else {
+        localPlayer.setVelocityY(-400);
+      }
     }
-  }
 
-  const isAbilityInputDown =
-    (scene.abilityKey?.isDown || abilityBtnActive) && gotAbility;
-  const config = ABILITY_CONFIG_SINGLE[myLevelAbility];
+    const isAbilityInputDown =
+      (scene.abilityKey?.isDown || abilityBtnActive) && gotAbility;
+    const config = ABILITY_CONFIG_SINGLE[myLevelAbility];
 
-  if (
-    isAbilityInputDown &&
-    singlePlayerCooldownDone &&
-    !singlePlayerIsCurrentlyHolding
-  ) {
-    singlePlayerIsCurrentlyHolding = true;
+    if (
+      isAbilityInputDown &&
+      singlePlayerCooldownDone &&
+      !singlePlayerIsCurrentlyHolding
+    ) {
+      singlePlayerIsCurrentlyHolding = true;
 
-    if (myLevelAbility === "drone") {
-      if (singlePlayerDroneUsage < 5) {
-        singlePlayerDroneUsage++;
+      if (myLevelAbility === "drone") {
+        if (singlePlayerDroneUsage < 5) {
+          singlePlayerDroneUsage++;
+          abilities[myLevelAbility]?.activate({
+            abilityOwner: oppositeCurrentPlayer,
+            x: localPlayer.x,
+            y: localPlayer.y,
+            usage: singlePlayerDroneUsage,
+            duration: config.duration,
+          });
+        }
+      } else {
         abilities[myLevelAbility]?.activate({
           abilityOwner: oppositeCurrentPlayer,
-          x: localPlayer.x,
-          y: localPlayer.y,
-          usage: singlePlayerDroneUsage,
           duration: config.duration,
         });
       }
-    } else {
-      abilities[myLevelAbility]?.activate({
+
+      if (config.duration && config.duration !== Infinity) {
+        if (singlePlayerAbilityTimer) clearTimeout(singlePlayerAbilityTimer);
+
+        singlePlayerAbilityTimer = setTimeout(() => {
+          if (singlePlayerIsCurrentlyHolding) {
+            triggerSinglePlayerDeactivation();
+          }
+        }, config.duration);
+      }
+    }
+
+    if (!isAbilityInputDown && singlePlayerIsCurrentlyHolding) {
+      triggerSinglePlayerDeactivation();
+    }
+
+    function triggerSinglePlayerDeactivation() {
+      singlePlayerIsCurrentlyHolding = false;
+      singlePlayerCooldownDone = false;
+
+      if (singlePlayerAbilityTimer) {
+        clearTimeout(singlePlayerAbilityTimer);
+        singlePlayerAbilityTimer = null;
+      }
+
+      abilities[myLevelAbility]?.deactivate({
         abilityOwner: oppositeCurrentPlayer,
-        duration: config.duration,
       });
+
+      const cooldownTime = config.cooldown;
+      let counter = cooldownTime / 1000;
+      let abilityText =
+        myLevelAbility.charAt(0).toUpperCase() + myLevelAbility.slice(1);
+
+      const cooldownInterval = setInterval(() => {
+        updateMessages([], "", true);
+        updateMessages([], "", false);
+        updateMessages(
+          ["red"],
+          abilityText + " cooling down: " + counter.toFixed(1) + "s",
+          true,
+        );
+        counter -= 0.1;
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(cooldownInterval);
+        updateMessages([], "", true);
+        singlePlayerCooldownDone = true;
+      }, cooldownTime);
     }
 
-    if (config.duration && config.duration !== Infinity) {
-      if (singlePlayerAbilityTimer) clearTimeout(singlePlayerAbilityTimer);
-
-      singlePlayerAbilityTimer = setTimeout(() => {
-        if (singlePlayerIsCurrentlyHolding) {
-          triggerSinglePlayerDeactivation();
-        }
-      }, config.duration);
-    }
-  }
-
-  if (!isAbilityInputDown && singlePlayerIsCurrentlyHolding) {
-    triggerSinglePlayerDeactivation();
-  }
-
-  function triggerSinglePlayerDeactivation() {
-    singlePlayerIsCurrentlyHolding = false;
-    singlePlayerCooldownDone = false;
-
-    if (singlePlayerAbilityTimer) {
-      clearTimeout(singlePlayerAbilityTimer);
-      singlePlayerAbilityTimer = null;
+    if (localPlayer.y > scene.physics.world.bounds.height + 200) {
+      deathReset();
     }
 
-    abilities[myLevelAbility]?.deactivate({
-      abilityOwner: oppositeCurrentPlayer,
-    });
-
-    const cooldownTime = config.cooldown;
-    let counter = cooldownTime / 1000;
-    let abilityText =
-      myLevelAbility.charAt(0).toUpperCase() + myLevelAbility.slice(1);
-
-    const cooldownInterval = setInterval(() => {
-      updateMessages([], "", true);
-      updateMessages([], "", false);
-      updateMessages(
-        ["red"],
-        abilityText + " cooling down: " + counter.toFixed(1) + "s",
-        true,
-      );
-      counter -= 0.1;
-    }, 100);
-
-    setTimeout(() => {
-      clearInterval(cooldownInterval);
-      updateMessages([], "", true);
-      singlePlayerCooldownDone = true;
-    }, cooldownTime);
+    updateTileAnimations(mapAnimatedTilesSingle, delta);
   }
-
-  if (localPlayer.y > scene.physics.world.bounds.height + 200) {
-    deathReset();
-  }
-
-  updateTileAnimations(mapAnimatedTilesSingle, delta);
 }
 
 function createPhaserGame() {
@@ -2826,15 +2839,22 @@ socket.on("abilityDeactivated", (data) => {
 });
 
 document.getElementById("saveKeybinds").addEventListener("click", function () {
-  updateKeybinds();
-  document.getElementById("saveKeybinds").innerText = "Saved!";
-  setTimeout(function () {
-    document.getElementById("saveKeybinds").innerText = "Save";
-  }, 1500);
+  let res = updateKeybinds();
+  if (res == true) {
+    document.getElementById("saveKeybinds").style.background =
+      "linear-gradient(to right, #000, #001ac9, #000) padding-box, linear-gradient(to right, #fff, #bababa, #fff) border-box";
+    document.getElementById("saveKeybinds").innerText = "Saved!";
+    setTimeout(function () {
+      document.getElementById("saveKeybinds").innerText = "Save";
+    }, 1500);
+  }
 });
 document.getElementById("resetKeybinds").addEventListener("click", function () {
   resetKeybinds();
   document.getElementById("resetKeybinds").innerText = "Reset to Default!";
+  document.getElementById("saveKeybinds").style.background =
+    "linear-gradient(to right, #000, #c9009a, #000) padding-box, linear-gradient(to right, #fff, #bababa, #fff) border-box";
+
   setTimeout(function () {
     document.getElementById("resetKeybinds").innerText = "Reset Keybinds";
   }, 1500);
@@ -3039,11 +3059,16 @@ keydownDivs.forEach((div) => {
     } else {
       div.dataset.key = event.key;
     }
+    document.getElementById("saveKeybinds").style.background =
+      "linear-gradient(to right, #000, #c9009a, #000) padding-box, linear-gradient(to right, #fff, #bababa, #fff) border-box";
   });
 });
 
 function updateKeybinds() {
-  if (!scene) return;
+  let updateKeybindsCheck = true;
+  if (!scene) {
+    updateKeybindsCheck = false;
+  }
 
   const usedPhaserKeys = new Map();
 
@@ -3062,7 +3087,8 @@ function updateKeybinds() {
         `"${domKey}" is already assigned to "${conflictAction}".\nEach action must have a unique key.`,
       );
 
-      return;
+      updateKeybindsCheck = false;
+      // return;
     }
 
     usedPhaserKeys.set(phaserKey, action.storage);
@@ -3070,6 +3096,7 @@ function updateKeybinds() {
     scene[action.sceneKey] = getKeyObject(domKey);
     localStorage.setItem(action.storage, domKey);
   });
+  return updateKeybindsCheck;
 }
 
 function resetKeybinds() {
