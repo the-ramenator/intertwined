@@ -4,10 +4,13 @@
     <title>Intertwined</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    
+
     <link rel="stylesheet" href="style.css" />
-    <link rel="icon" type="image/x-icon" id="favicon"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="icon" type="image/x-icon" id="favicon" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,14 +19,17 @@
       rel="stylesheet"
     />
 
-    <meta charset="UTF-8">
-    <meta charset="UTF-8">
-    <meta property="og:title" content="Intertwined">
-    <meta property="og:description" content="2 player pixel platformer">
-    <meta property="og:image" content="https://raw.githubusercontent.com/the-ramenator/intertwined/refs/heads/master/public/assets/p1.png">
+    <meta charset="UTF-8" />
+    <meta charset="UTF-8" />
+    <meta property="og:title" content="Intertwined" />
+    <meta property="og:description" content="2 player pixel platformer" />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/the-ramenator/intertwined/refs/heads/master/public/assets/p1.png"
+    />
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   </head>
   <body>
     <div id="particles"></div>
@@ -37,7 +43,7 @@
       <button id="creditsClose">&times;</button>
       <div id="credits">
         <h1>Credits</h1>
-     <!--   <div class="creditsLeft">
+        <!--   <div class="creditsLeft">
           Developer: <br><br> 
           Designer: <br /><br />
           Playtesters: <br><br><br><br>
@@ -62,7 +68,7 @@
     </div>
 
     <div id="pauseOverlay">
-      <img src="assets/volumeOn.png" id="volumeBtn">
+      <img src="assets/volumeOn.png" id="volumeBtn" />
       <div id="pauseOptions">
         <button id="resumeBtn"><span>Resume</span></button>
         <button id="pauseKeybindsBtn"><span>Controls</span></button>
@@ -75,9 +81,11 @@
         <p>
           ◊ Intertwined is a split screen multiplayer<br />
           ◊ The player you control is always on the top<br />
-          ◊ You and your partner must try to reach the portals at the end of each level together<br />
-          ◊ Once you gain an ability, your partner has control over when it is activated<br />
-          ◊ Work collaboratively and try to beat the game as fast as possible<br /><br>
+          ◊ You and your partner must try to reach the portals at the end of
+          each level together<br />
+          ◊ Once you gain an ability, your partner has control over when it is
+          activated<br />
+          ◊ Work collaboratively and try to beat the game as fast as possible<br /><br />
           ◊ Keybinds & mobile buttons are customizable via the controls menu<br />
         </p>
         <button id="backHelp">Back</button>
@@ -97,50 +105,122 @@
           <span id="pauselevel5Info">Level 5</span>
           <span id="pauselevel6Info">Level 6</span>
         </div>
-       <div id="pauseAbilityInfo">
+        <div id="pauseAbilityInfo">
           <h1>Abilities</h1>
           <h2 id="pauseInfoAbilitiesPlayer1">Phrederick</h2>
           <h2 id="pauseInfoAbilitiesPlayer2">Alphred</h2>
           <div id="pauseInfoAbilitiesDivider"></div>
-          <span id="pauselevel1AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Crouch</span><br>Shrink Phrederick by 1/2</span>
-          <span id="pauselevel2AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Levitate</span><br>Slowly float Phrederick upwards</span>
-          <span id="pauselevel3AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Glide</span><br>Decrease Phrederick's falling speed</span>
-          <span id="pauselevel4AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Shatter</span><br>Alphred breaks 4 blocks</span>
-          <span id="pauselevel5AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Dash</span><br>Alphred gains greatly increased movement speed</span>
-          <span id="pauselevel6AbilityInfo"><span class="orange" style='font-size: 1.45em; font-family: "Jersey 10", sans-serif;'>Drone</span><br>Spawn a drone under Alphred (max 5)</span>
+          <span id="pauselevel1AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Crouch</span
+            ><br />Shrink Phrederick by 1/2</span
+          >
+          <span id="pauselevel2AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Levitate</span
+            ><br />Slowly float Phrederick upwards</span
+          >
+          <span id="pauselevel3AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Glide</span
+            ><br />Decrease Phrederick's falling speed</span
+          >
+          <span id="pauselevel4AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Shatter</span
+            ><br />Alphred breaks 4 blocks</span
+          >
+          <span id="pauselevel5AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Dash</span
+            ><br />Alphred gains greatly increased movement speed</span
+          >
+          <span id="pauselevel6AbilityInfo"
+            ><span
+              class="orange"
+              style="
+                font-size: 1.45em;
+                font-family: &quot;Jersey 10&quot;, sans-serif;
+              "
+              >Drone</span
+            ><br />Spawn a drone under Alphred (max 5)</span
+          >
         </div>
       </div>
       <div id="pauseKeybindsCont">
         <h1>Keybinds</h1>
-        <div id="pauseKeybinds"">
+        <div id="pauseKeybinds">
+          <div class="keyLabelDiv div1">Left</div>
+          <div class="keyLabelDiv div2">Right</div>
+          <div class="keyLabelDiv div3">Jump</div>
+          <div class="keyLabelDiv div4">Ability</div>
+          <div class="keyLabelDiv div5">Restart</div>
+          <div class="keyLabelDiv div11">Pause</div>
+
           <div
-class="keyLabelDiv div1">Left</div>
+            tabindex="0"
+            data-event="left"
+            data-key="ArrowLeft"
+            class="keydownDiv div6"
+          ></div>
           <div
-class="keyLabelDiv div2">Right</div>
+            tabindex="0"
+            data-event="right"
+            data-key="ArrowRight"
+            class="keydownDiv div7"
+          ></div>
           <div
-class="keyLabelDiv div3">Jump</div>
-              <div
-          class="keyLabelDiv div4">Ability</div>
+            tabindex="0"
+            data-event="jump"
+            data-key="ArrowUp"
+            class="keydownDiv div8"
+          ></div>
           <div
-class="keyLabelDiv div5">Restart</div>
-             <div
-          class="keyLabelDiv div11">Pause</div>
-          
-          <div tabindex="0" data-event="left" data-key="ArrowLeft"
-class="keydownDiv div6"></div>
-          <div tabindex="0" data-event="right" data-key="ArrowRight"
-class="keydownDiv div7"></div>
-          <div tabindex="0" data-event="jump" data-key="ArrowUp"
-          class="keydownDiv div8"></div>
-          <div tabindex="0"  data-event="ability" data-key="k"
-class="keydownDiv div9"></div>
-        <div tabindex="0" data-event="restart" data-key="r"
-          class="keydownDiv div10"></div>
-          <div tabindex="0" data-event="pause" data-key="b"
-class="keydownDiv div12"></div>
+            tabindex="0"
+            data-event="ability"
+            data-key="k"
+            class="keydownDiv div9"
+          ></div>
+          <div
+            tabindex="0"
+            data-event="restart"
+            data-key="r"
+            class="keydownDiv div10"
+          ></div>
+          <div
+            tabindex="0"
+            data-event="pause"
+            data-key="b"
+            class="keydownDiv div12"
+          ></div>
         </div>
         <button id="resetKeybinds">Reset Keybinds</button>
-      <button id="saveKeybinds">Save</button>
+        <button id="saveKeybinds">Save</button>
         <button id="backKeybinds">Back</button>
         <button id="mobileKeybinds">Mobile Layout</button>
       </div>
@@ -183,7 +263,9 @@ class="keydownDiv div12"></div>
         <button id="leaveMatchmaking">Exit matchmaking</button>
 
         <div style="display: none" id="playerSelect">
-          <button id="player1" class="connected float4">Select Phrederick</button>
+          <button id="player1" class="connected float4">
+            Select Phrederick
+          </button>
           <button id="player2" class="connected float3">Select Alphred</button>
           <button id="clear">Clear Selection</button>
           <button id="startBtn">Start Game</button>
@@ -235,20 +317,27 @@ class="keydownDiv div12"></div>
         id="status"
       ></pre>-->
     </div>
-    <div id="gameOverlay"></div> <!-- Use this to fade between levels fr -->
+    <div id="gameOverlay"></div>
+    <!-- Use this to fade between levels fr -->
     <div id="tipsOverlay">
       <span id="tip"></span>
     </div>
     <div style="display: none" id="gameContainer">
       <div id="chatCont">
-        <div id="chatHeader">Chat<span id="chatClose" style="float: right; cursor: pointer;font-size: 150%">&times;</span></div>
+        <div id="chatHeader">
+          Chat<span
+            id="chatClose"
+            style="float: right; cursor: pointer; font-size: 150%"
+            >&times;</span
+          >
+        </div>
 
         <div id="chatBody">
           <div id="chatMessages"></div>
 
           <div id="chatInputRow">
-            <input id="chatInput" type="text">
-            <button id="chatSend" class="fa">&#xf1d8;</button> 
+            <input id="chatInput" type="text" />
+            <button id="chatSend" class="fa">&#xf1d8;</button>
             <!-- &#xf1d9;-->
           </div>
         </div>
@@ -259,15 +348,15 @@ class="keydownDiv div12"></div>
       <span id="remoteStatus"></span>
       <span id="timer"></span>
       <p id="gameStatus"></p>
-      <img id="pauseBtn" src="assets/pause_icon.png">
-      <img id="messagesBtn" src="assets/chat_icon.png">
+      <img id="pauseBtn" src="assets/pause_icon.png" />
+      <img id="messagesBtn" src="assets/chat_icon.png" />
       <div id="newMessageDot"></div>
       <div id="mobileOptions">
-      <button id="leftBtn">Left</button>
-      <button id="rightBtn">Right</button>
-      <button id="jumpBtn">Jump</button>
-      <button id="abilityBtn">Ability</button>
-      <button id="restartBtn">Restart</button>
+        <button id="leftBtn">Left</button>
+        <button id="rightBtn">Right</button>
+        <button id="jumpBtn">Jump</button>
+        <button id="abilityBtn">Ability</button>
+        <button id="restartBtn">Restart</button>
       </div>
     </div>
     <script src="client.js"></script>

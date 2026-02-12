@@ -46,6 +46,8 @@ let touchedWinAlr = false;
 let mapAnimatedTiles1 = [];
 let mapAnimatedTiles2 = [];
 
+let mapAnimatedTilesSingle = [];
+
 let isChangingLevels = false;
 
 let isSinglePlayer = false;
@@ -273,9 +275,6 @@ const abilities = {
         localPlayer.levitateActive = true;
       }
       getPlayerByOwner(abilityOwner).levitateActive = true;
-      console.log(
-        "ab obj lev: " + getPlayerByOwner(abilityOwner).levitateActive,
-      );
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
       updateMessages(["green"], "Levitate Active", isLocal, duration);
@@ -908,11 +907,10 @@ document
   .getElementById("singlePlayerBtn")
   .addEventListener("click", function () {
     isSinglePlayer = true;
-
+    document.getElementById("messagesBtn").style.display = "none";
     document.getElementById("setupContainer").style.display = "none";
     document.getElementById("gameContainer").style.display = "block";
     document.getElementById("particles").style.display = "none";
-
     startSinglePlayerGame();
   });
 let singlePlayerLevelQueue = [];
@@ -922,6 +920,7 @@ function startSinglePlayerGame() {
   const ts = 32;
   const allLevels = [
     {
+      mapName: "Caveman",
       mapKey: "level1",
       ability: "crouch",
       owner: 1,
@@ -929,6 +928,7 @@ function startSinglePlayerGame() {
       spawnY: 49 * ts,
     },
     {
+      mapName: "Stone Age",
       mapKey: "level2",
       ability: "levitate",
       owner: 1,
@@ -936,6 +936,7 @@ function startSinglePlayerGame() {
       spawnY: 49 * ts,
     },
     {
+      mapName: "Renaissance",
       mapKey: "level3",
       ability: "glide",
       owner: 1,
@@ -943,6 +944,7 @@ function startSinglePlayerGame() {
       spawnY: 11 * ts,
     },
     {
+      mapName: "Exploration",
       mapKey: "level4",
       ability: "shatter",
       owner: 2,
@@ -950,6 +952,7 @@ function startSinglePlayerGame() {
       spawnY: 84 * ts,
     },
     {
+      mapName: "Industrial",
       mapKey: "level5",
       ability: "dash",
       owner: 2,
@@ -957,6 +960,7 @@ function startSinglePlayerGame() {
       spawnY: 89 * ts,
     },
     {
+      mapName: "Futuristic",
       mapKey: "level6",
       ability: "drone",
       owner: 2,
@@ -1132,22 +1136,18 @@ function createSinglePlayer() {
   updateKeybinds();
 
   //grah
-  console.log("setp2");
-  localPlayer.setTexture("p2");
-
   this.pausePhysics = false;
 
-  // this.music = this.sound.add("music");
-  // this.music.setLoop(true);
-  // if (localStorage.getItem("soundOn") == null) {
-  //   localStorage.setItem("soundOn", true);
-  // }
-  // if (localStorage.getItem("soundOn") == true) {
-  //   this.music.play();
-  // } else {
-  //   this.music.pause();
-  // }
-  //level skipping, comment out for final build
+  this.music = this.sound.add("music");
+  this.music.setLoop(true);
+  if (localStorage.getItem("soundOn") == null) {
+    localStorage.setItem("soundOn", true);
+  }
+  if (localStorage.getItem("soundOn") == true) {
+    this.music.play();
+  } else {
+    this.music.pause();
+  }
 
   if (levelTimerInterval) {
     clearInterval(levelTimerInterval);
@@ -1160,12 +1160,20 @@ function createSinglePlayer() {
       (levelTimer / 1000).toFixed(0) + "s";
   }, 100);
 
+  //level skipping, comment out for final build
+
   this.input.keyboard.on("keydown-Z", function (event) {
     loadNextSingleLevel();
   });
 
   createAnimations(scene);
   loadNextSingleLevel();
+  Swal.fire({
+    title: "How to Play",
+    theme: "dark",
+    text: "You're in single player mode! There are 6 levels for you to beat. Movement is bound to arrow keys by default, and ability is bound to 'k'. Feel free to change these in the pause menu! You can also see your progress in the info tab in the pause menu. Good luck!",
+    icon: "question",
+  });
 }
 
 function loadNextSingleLevel() {
@@ -1225,11 +1233,28 @@ function loadNextSingleLevel() {
   localPlayer.setPosition(levelData.spawnX, levelData.spawnY);
   gotAbility = false;
 
-  const animatedTiles1 = getAnimatedTiles(map);
-  mapAnimatedTiles1 = getAllMapAnimatedTiles(
+  const animatedTilesSingle = getAnimatedTiles(map);
+  mapAnimatedTilesSingle = getAllMapAnimatedTiles(
     activeLevels[0].layers,
-    animatedTiles1,
+    animatedTilesSingle,
   );
+  if (active.length != 0) {
+    for (const key in active) {
+      beaten.push(active[key]);
+    }
+    active = [];
+  }
+  if (locked.length != 0) {
+    let temp = locked;
+    locked = [];
+    for (const key in temp) {
+      if (!(temp[key].mapKey == levelData.mapKey)) {
+        locked.push(temp[key]);
+      }
+    }
+  }
+  active.push(levelData);
+  updateInfo();
 
   resizeCamerasOnly();
   setPhysicsOn(localPlayer, true);
@@ -1418,7 +1443,7 @@ function updateSinglePlayer(time, delta) {
     deathReset();
   }
 
-  updateTileAnimations(mapAnimatedTiles1, delta);
+  updateTileAnimations(mapAnimatedTilesSingle, delta);
 }
 
 function createPhaserGame() {
@@ -3209,12 +3234,12 @@ function create() {
   updateKeybinds();
 
   //level skipping, comment out for final build
-  /* this.input.keyboard.on("keydown-Z", function (event) {
+  this.input.keyboard.on("keydown-Z", function (event) {
     socket.emit("gameWinUpdate", {
       room: roomCode,
       touching: true,
     });
-  });*/
+  });
 
   this.pausePhysics = false;
 
@@ -3230,6 +3255,12 @@ function create() {
   }
   createAnimations(this);
   // this.input.keyboard.preventDefault = false;
+  Swal.fire({
+    title: "How to Play",
+    theme: "dark",
+    text: "You're in two player mode! There are 6 levels for the two of you to beat. You control your partner's ability, and your partner controls yours. The two of you will take turns switching levels until all 6 are beaten. Movement is bound to arrow keys by default, and ability is bound to 'k'. Feel free to change these in the pause menu! You can also see your progress in the info tab in the pause menu. Good luck!",
+    icon: "question",
+  });
 }
 document.getElementById("pauseBtn").addEventListener("click", function () {
   showPause();
