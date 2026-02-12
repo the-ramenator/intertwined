@@ -1161,10 +1161,10 @@ function createSinglePlayer() {
   }, 100);
 
   //level skipping, comment out for final build
-
+  /*
   this.input.keyboard.on("keydown-Z", function (event) {
     loadNextSingleLevel();
-  });
+  });*/
 
   createAnimations(scene);
   loadNextSingleLevel();
@@ -3234,12 +3234,12 @@ function create() {
   updateKeybinds();
 
   //level skipping, comment out for final build
-  this.input.keyboard.on("keydown-Z", function (event) {
+  /*this.input.keyboard.on("keydown-Z", function (event) {
     socket.emit("gameWinUpdate", {
       room: roomCode,
       touching: true,
     });
-  });
+  });*/
 
   this.pausePhysics = false;
 
