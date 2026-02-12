@@ -56,6 +56,18 @@ const DEATH_TILES = [
   19, 20, 27, 28, 818, 819, 770, 771 /*, 756, 708, 660, 612*/,
 ];
 
+const PLAYER_FLAGS = {
+  LEFT: 1, // 000000001
+  RIGHT: 2, // 000000010
+  CROUCH: 4, // 000000100
+  LEVITATE: 8, // 000001000
+  GLIDE: 16, // 000010000
+  SHATTER: 32, // 000100000
+  DASH: 64, // 001000000
+  DRONE: 128, // 010000000
+  JUMP: 256, // 100000000
+};
+
 let localPlayerState = {
   x: 0,
   y: 0,
@@ -128,7 +140,7 @@ const ABILITY_CONFIG_SINGLE = {
     mode: "channel",
   },
   shatter: {
-    duration: 950,
+    duration: 550, //lower for less server lag
     cooldown: 2500,
     mode: "channel",
   },
@@ -439,7 +451,7 @@ const abilities = {
       } else {
         droneActive = true;
         getPlayerByOwner(abilityOwner).setVelocityY(0);
-        getPlayerByOwner(abilityOwner).setPosition(x, y);
+        getPlayerByOwner(abilityOwner).setPosition(x, y - 10);
         dronePlatform = dronePlatforms.create(x, y + 50, "drone").setScale(1);
         //camera ignore
         if (isSinglePlayer) {
@@ -1282,8 +1294,9 @@ function updateSinglePlayer(time, delta) {
   if (!this.pausePhysics) {
     const body = localPlayer.body;
     if (scene.restartKey.isDown) {
-      localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-      localPlayer.setVelocity(0, 0);
+      deathReset();
+      // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+      // localPlayer.setVelocity(0, 0);
     }
     let moveSpeed = 360;
     if (localPlayer.levitateActive) {
@@ -2590,30 +2603,53 @@ let remoteTargetX, remoteTargetY;
 socket.on("playerUpdate", (data) => {
   remoteTargetX = data.x;
   remoteTargetY = data.y;
-  if (data.left) {
+  const LERP_FACTOR = 0.2;
+
+  remotePlayer.x = Phaser.Math.Linear(
+    remotePlayer.x,
+    remoteTargetX,
+    LERP_FACTOR,
+  );
+  remotePlayer.y = Phaser.Math.Linear(
+    remotePlayer.y,
+    remoteTargetY,
+    LERP_FACTOR,
+  );
+  // Unpack flags
+  const f = data.f;
+  const isLeft = (f & PLAYER_FLAGS.LEFT) !== 0;
+  const isRight = (f & PLAYER_FLAGS.RIGHT) !== 0;
+
+  // Animation Logic
+  if (isLeft) {
     remotePlayer.flipX = true;
-  } else if (data.right) {
+  } else if (isRight) {
     remotePlayer.flipX = false;
   }
 
-  if (
-    data.levitateActive ||
-    data.glideActive ||
-    data.shatterActive ||
-    data.dashActive ||
-    data.jump
-  ) {
+  // Check active abilities using bitwise AND
+  const isBusy =
+    (f &
+      (PLAYER_FLAGS.LEVITATE |
+        PLAYER_FLAGS.GLIDE |
+        PLAYER_FLAGS.SHATTER |
+        PLAYER_FLAGS.DASH |
+        PLAYER_FLAGS.JUMP)) !==
+    0;
+
+  if (isBusy) {
     return;
   }
+
   if (!isPlayer1) {
-    if (data.right || data.left) {
+    if (isRight || isLeft) {
       remotePlayer.anims.play("p1run", true);
     } else {
       remotePlayer.anims.stop();
       remotePlayer.setFrame(0);
     }
   } else {
-    if (data.right || data.left) {
+    if (isRight || isLeft) {
       remotePlayer.anims.play("p2run", true);
     } else {
       remotePlayer.anims.stop();
@@ -2952,9 +2988,9 @@ abilityBtn.addEventListener("pointercancel", () => {
 restartBtn.addEventListener("pointerdown", (e) => {
   prevent(e);
   if (scene) {
-    //deathReset();
-    localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-    localPlayer.setVelocity(0, 0);
+    deathReset();
+    // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+    // localPlayer.setVelocity(0, 0);
   }
 });
 
@@ -3337,6 +3373,7 @@ chatInput.addEventListener("keydown", (e) => {
 let coyoteTimeout;
 let isGoingRight = false;
 let isGoingLeft = false;
+let checkedBlocked = false; //localPlayer.body.blocked.down
 function update(time, delta) {
   if (!localPlayer) return;
   if (isChangingLevels || !scene?.physics?.world) return;
@@ -3364,6 +3401,7 @@ function update(time, delta) {
       if (!abilityBtnActive) {
         if (scene.abilityKey?.isDown) {
           if (!abilityPressed) {
+            checkedBlocked = false;
             abilityPressed = true;
             socket.emit("abilityActivated", {
               room: roomCode,
@@ -3381,6 +3419,7 @@ function update(time, delta) {
       if (!abilityBtnActive) {
         if (scene.abilityKey && !scene.abilityKey.isDown) {
           if (abilityPressed) {
+            checkedBlocked = false;
             abilityPressed = false;
             socket.emit("abilityDeactivated", {
               room: roomCode,
@@ -3398,16 +3437,19 @@ function update(time, delta) {
       ) {
         //restart
         if (scene.restartKey.isDown) {
-          //deathReset();
-          localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
-          localPlayer.setVelocity(0, 0);
+          checkedBlocked = false;
+          deathReset();
+          // localPlayer.setPosition(spawnXGlobal, spawnYGlobal);
+          // localPlayer.setVelocity(0, 0);
         }
 
         if (localPlayer.levitateActive) {
+          checkedBlocked = false;
           localPlayer.body.allowGravity = false;
           localPlayer.setVelocityY(-100);
           localPlayer.setAccelerationY(0);
         } else if (localPlayer.glideActive) {
+          checkedBlocked = false;
           localPlayer.body.allowGravity = true;
           localPlayer.setVelocityY(50);
         } else {
@@ -3422,6 +3464,7 @@ function update(time, delta) {
             }, 150);
           }
           if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
+            checkedBlocked = false;
             if (localPlayer.crouchActive) {
               localPlayer.setVelocityY(-270);
             } else {
@@ -3431,12 +3474,14 @@ function update(time, delta) {
           if (localPlayer.body.blocked.down) {
             localPlayer.jump = false;
           } else {
+            checkedBlocked = false;
             localPlayer.jump = true;
           }
         }
 
         let velocityX = 360;
         if (localPlayer.dashActive) {
+          checkedBlocked = false;
           velocityX = 1500;
         }
         //do anims logic haha :sob: if else chain of doom ahh
@@ -3478,11 +3523,13 @@ function update(time, delta) {
         }
 
         if (this.rightKey.isDown || rightBtnActive) {
+          checkedBlocked = false;
           localPlayer.setVelocityX(velocityX);
           localPlayer.flipX = false;
 
           isGoingRight = true;
         } else if (this.leftKey.isDown || leftBtnActive) {
+          checkedBlocked = false;
           localPlayer.setVelocityX(-velocityX);
           localPlayer.flipX = true;
 
@@ -3494,36 +3541,54 @@ function update(time, delta) {
         }
       }
     }
-    if (time - this.lastSend > 5) {
+    if (localPlayer.body.blocked.down) {
+      checkedBlocked = false;
+    }
+    if (time - this.lastSend > 6) {
+      const x = Math.round(localPlayer.x * 100) / 100;
+      const y = Math.round(localPlayer.y * 100) / 100;
+
+      let flags = 0;
+      if (isGoingLeft) flags |= PLAYER_FLAGS.LEFT;
+      if (isGoingRight) flags |= PLAYER_FLAGS.RIGHT;
+      if (localPlayer.crouchActive) flags |= PLAYER_FLAGS.CROUCH;
+      if (localPlayer.levitateActive) flags |= PLAYER_FLAGS.LEVITATE;
+      if (localPlayer.glideActive) flags |= PLAYER_FLAGS.GLIDE;
+      if (localPlayer.shatterActive) flags |= PLAYER_FLAGS.SHATTER;
+      if (localPlayer.dashActive) flags |= PLAYER_FLAGS.DASH;
+      if (localPlayer.droneActive) flags |= PLAYER_FLAGS.DRONE;
+      if (localPlayer.jump) flags |= PLAYER_FLAGS.JUMP;
+
+      // 3. Only emit if something actually changed (Threshold check)
+      // Check distance > 1 pixel or if flags changed
+      const dist = Phaser.Math.Distance.Between(
+        localPlayerState.x,
+        localPlayerState.y,
+        x,
+        y,
+      );
+
       if (
+        dist > 1 ||
+        localPlayerState.f !== flags ||
         localPlayer.x != localPlayerState.x ||
         localPlayer.y != localPlayerState.y ||
-        localPlayer.droneActive
+        localPlayer.droneActive ||
+        checkedBlocked == false
       ) {
         socket.emit("playerUpdate", {
           room: roomCode,
-          x: localPlayer.x,
-          y: localPlayer.y,
-          left: isGoingLeft,
-          right: isGoingRight,
-          crouchActive: localPlayer.crouchActive,
-          levitateActive: localPlayer.levitateActive,
-          glideActive: localPlayer.glideActive,
-          shatterActive: localPlayer.shatterActive,
-          dashActive: localPlayer.dashActive,
-          droneActive: localPlayer.droneActive,
-          jump: localPlayer.jump,
+          x: x,
+          y: y,
+          f: flags,
         });
+
+        localPlayerState.x = x;
+        localPlayerState.y = y;
+        localPlayerState.f = flags;
+        checkedBlocked = true;
+        this.lastSend = time;
       }
-      localPlayerState.x = localPlayer.x;
-      localPlayerState.y = localPlayer.y;
-
-      this.lastSend = time;
-      const base = 0.2;
-      const eased = Phaser.Math.Easing.Sine.Out(base);
-
-      remotePlayer.x = Phaser.Math.Linear(remotePlayer.x, remoteTargetX, eased);
-      remotePlayer.y = Phaser.Math.Linear(remotePlayer.y, remoteTargetY, eased);
     }
   } catch (e) {
     // console.log(e);
