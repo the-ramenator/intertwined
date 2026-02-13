@@ -1,4 +1,9 @@
-//Uncaught TypeError: Cannot read properties of undefined (reading 'contains')
+/*
+Fix: 
+- remove level skipping
+- fix bgs
+- 
+*/
 const socket = io();
 let roomCode = null;
 let localPlayer, remotePlayer, isPlayer1;
@@ -8,7 +13,7 @@ let scene;
 let currentMapKey1, currentMapKey2, currentMap;
 let myLevelAbility = null;
 let otherLevelAbility = null;
-let spawnXGlobal, spawnYGlobal, spawnXp1, spawnYp1, spawnXp2, spawnYp2; //update this for checkpoints --> update for each player
+let spawnXGlobal, spawnYGlobal, spawnXp1, spawnYp1, spawnXp2, spawnYp2;
 let currentLevelName, otherLevelName;
 let mainLayerXOffset, mainLayerYOffset;
 
@@ -122,7 +127,7 @@ const ABILITY_CONFIG_SINGLE = {
   glide: {
     duration: Infinity,
     cooldown: 2000,
-    mode: "channel", //allow early cancel
+    mode: "channel",
   },
   dash: {
     duration: 5000,
@@ -140,7 +145,7 @@ const ABILITY_CONFIG_SINGLE = {
     mode: "channel",
   },
   shatter: {
-    duration: 550, //lower for less server lag
+    duration: 550,
     cooldown: 2500,
     mode: "channel",
   },
@@ -264,7 +269,7 @@ const abilities = {
       getPlayerByOwner(abilityOwner).crouchActive = true;
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
-      updateMessages(["green"], "Crouch Active", isLocal, duration);
+      updateMessages(["green"], "Crouch Active", isLocal);
     },
     deactivate({ abilityOwner }) {
       if (isSinglePlayer) {
@@ -316,7 +321,7 @@ const abilities = {
       getPlayerByOwner(abilityOwner).glideActive = true;
       let isPlayerCheck = isPlayer1 ? 1 : 2;
       let isLocal = isPlayerCheck == abilityOwner ? true : false;
-      updateMessages(["green"], "Glide Active", isLocal, duration);
+      updateMessages(["green"], "Glide Active", isLocal);
       playAbilityChain(
         getPlayerByOwner(abilityOwner),
         "p1glideOpen",
@@ -1199,6 +1204,10 @@ function loadNextSingleLevel() {
 
   clearAllLevels(scene);
 
+  touchedWinAlr = false;
+  wonAlready = false;
+  gotAbility = false;
+
   const levelData = singlePlayerLevelQueue[currentSingleLevelIndex];
 
   const map = scene.make.tilemap({ key: levelData.mapKey });
@@ -1376,7 +1385,7 @@ function updateSinglePlayer(time, delta) {
     }
     const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
 
-    if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
+    if (jump /*&& localPlayer.body.blocked.down*/ || (jump && coyote)) {
       if (localPlayer.crouchActive) {
         localPlayer.setVelocityY(-270);
       } else {
@@ -2464,11 +2473,12 @@ function resizeCamerasOnly() {
       .setDepth(-100 + i);
 
     const scaleX =
-      (cameraWidth + (mapWidth - cameraWidth) * bg.factor) / image.width;
+      (cameraWidth + (mapWidth - cameraWidth) * (1 + bg.factor)) / image.width;
     const scaleY =
-      (cameraHeight + (mapHeight - cameraHeight) * bg.factor) / image.height;
+      (cameraHeight + (mapHeight - cameraHeight) * (1 + bg.factor)) /
+      image.height;
 
-    image.setScale(Math.max(scaleX, scaleY) * 2);
+    image.setScale(Math.max(scaleX, scaleY));
     if (isSinglePlayer) {
       camBottom.ignore(image);
     } else {
