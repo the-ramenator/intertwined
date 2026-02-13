@@ -1,9 +1,3 @@
-/*
-Fix: 
-- remove level skipping
-- fix bgs
-- 
-*/
 const socket = io();
 let roomCode = null;
 let localPlayer, remotePlayer, isPlayer1;
@@ -1385,7 +1379,7 @@ function updateSinglePlayer(time, delta) {
     }
     const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
 
-    if (jump /*&& localPlayer.body.blocked.down*/ || (jump && coyote)) {
+    if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
       if (localPlayer.crouchActive) {
         localPlayer.setVelocityY(-270);
       } else {
