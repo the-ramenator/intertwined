@@ -387,6 +387,7 @@ const abilities = {
     activate({ abilityOwner, duration }) {
       if (isSinglePlayer) {
         localPlayer.dashActive = true;
+        playAbilityChain(localPlayer, "p2dashOpen", "p2dashActive");
       }
       getPlayerByOwner(abilityOwner).dashActive = true;
       playAbilityChain(
@@ -455,6 +456,13 @@ const abilities = {
         //camera ignore
         if (isSinglePlayer) {
           camBottom.ignore(dronePlatform);
+          let oldVelocity = localPlayer.body.velocity.y;
+          localPlayer.setVelocity(0);
+          if (oldVelocity > 900) {
+            localPlayer.setPosition(x, y - 10);
+          } else {
+            localPlayer.setPosition(x, y);
+          }
         } else {
           if (isPlayer1) {
             camTop.ignore(dronePlatform);
@@ -1172,10 +1180,10 @@ function createSinglePlayer() {
   }, 100);
 
   //level skipping, comment out for final build
-  /*
+
   this.input.keyboard.on("keydown-Z", function (event) {
     loadNextSingleLevel();
-  });*/
+  });
 
   createAnimations(scene);
   loadNextSingleLevel();
@@ -1385,6 +1393,13 @@ function updateSinglePlayer(time, delta) {
       } else {
         localPlayer.setVelocityY(-400);
       }
+    }
+
+    if (
+      Phaser.Input.Keyboard.JustUp(this.jumpKey) &&
+      localPlayer.body.velocity.y < 0
+    ) {
+      localPlayer.setVelocityY(localPlayer.body.velocity.y * 0.75);
     }
 
     const isAbilityInputDown =
@@ -3472,9 +3487,16 @@ function update(time, delta) {
             if (localPlayer.crouchActive) {
               localPlayer.setVelocityY(-270);
             } else {
-              localPlayer.setVelocityY(-400);
+              localPlayer.setVelocityY(-450);
             }
           }
+          if (
+            Phaser.Input.Keyboard.JustUp(this.jumpKey) &&
+            localPlayer.body.velocity.y < 0
+          ) {
+            localPlayer.setVelocityY(localPlayer.body.velocity.y * 0.65);
+          }
+
           if (localPlayer.body.blocked.down) {
             localPlayer.jump = false;
           } else {
