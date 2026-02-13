@@ -926,6 +926,13 @@ document
   .getElementById("singlePlayerBtn")
   .addEventListener("click", function () {
     isSinglePlayer = true;
+    document.getElementById("tipsOverlay").style.display = "block";
+    document.getElementById("tipsOverlay").style.opacity = "1";
+    tipsInterval = setInterval(function () {
+      let randomTip = tips[Math.floor(Math.random() * tips.length)];
+      document.getElementById("tip").innerHTML = randomTip + "...";
+    }, 3000);
+
     document.getElementById("messagesBtn").style.display = "none";
     document.getElementById("setupContainer").style.display = "none";
     document.getElementById("gameContainer").style.display = "block";
@@ -1187,6 +1194,12 @@ function createSinglePlayer() {
 
   createAnimations(scene);
   loadNextSingleLevel();
+  clearInterval(tipsInterval);
+  document.getElementById("tipsOverlay").style.opacity = "0";
+  setTimeout(function () {
+    document.getElementById("tipsOverlay").style.display = "none";
+  }, 500);
+
   Swal.fire({
     title: "How to Play",
     theme: "dark",
@@ -1243,7 +1256,7 @@ function loadNextSingleLevel() {
     offsetY: 0,
     spawnX: levelData.spawnX,
     spawnY: levelData.spawnY,
-    mapName: levelData.mapKey,
+    mapName: levelData.mapName,
     scene,
     camTop: scene.cameras.main,
     camBottom: camBottom,
@@ -1255,6 +1268,9 @@ function loadNextSingleLevel() {
 
   localPlayer.setPosition(levelData.spawnX, levelData.spawnY);
   gotAbility = false;
+
+  updateMessages([], "", true);
+  updateMessages(["purple"], "Level: " + levelData.mapName, false);
 
   const animatedTilesSingle = getAnimatedTiles(map);
   mapAnimatedTilesSingle = getAllMapAnimatedTiles(
@@ -1387,7 +1403,7 @@ function updateSinglePlayer(time, delta) {
     }
     const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
 
-    if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
+    if (jump /*&& localPlayer.body.blocked.down*/ || (jump && coyote)) {
       if (localPlayer.crouchActive) {
         localPlayer.setVelocityY(-270);
       } else {
@@ -1765,9 +1781,12 @@ function buildLevel({
             touchedWinAlr = true;
 
             if (isSinglePlayer) {
-              scene.time.delayedCall(0, () => {
-                loadNextSingleLevel();
-              });
+              updateMessages(["green"], "Level Cleared", true);
+              setTimeout(function () {
+                scene.time.delayedCall(0, () => {
+                  loadNextSingleLevel();
+                });
+              }, 2000);
               // console.log("win activated");
             } else {
               socket.emit("gameWinUpdate", {

@@ -197,7 +197,9 @@ body {
   color: white;
   text-shadow: 0 0 10px black;
 }
-#createBtn:hover {
+#createBtn:hover,
+#matchmakingBtn:hover,
+#infoBtn:hover {
   color: black;
   text-shadow: 0 0 10px white;
 }
@@ -498,9 +500,13 @@ button:disabled {
 #singlePlayerBtn {
   top: 1.5em;
   right: 1.5em;
+  color: black;
+  text-shadow: 0 0 10px white;
+  font-size: 3em;
+}
+#singlePlayerBtn:hover {
   color: white;
   text-shadow: 0 0 10px black;
-  font-size: 3em;
 }
 
 #infoBtn {
@@ -519,9 +525,6 @@ button:disabled {
   color: white;
   text-shadow: 0 0 10px black;
 }
-#infoBtn:hover,
-#matchmakingBtn:hover,
-#singlePlayerBtn:hover,
 #infoClose:hover {
   color: #bfbfbf;
 }
