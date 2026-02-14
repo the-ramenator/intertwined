@@ -1161,7 +1161,6 @@ function createSinglePlayer() {
   setLocalStorage();
   updateKeybinds();
 
-  //grah
   this.pausePhysics = false;
 
   this.music = this.sound.add("music");
@@ -1169,7 +1168,7 @@ function createSinglePlayer() {
   if (localStorage.getItem("soundOn") == null) {
     localStorage.setItem("soundOn", true);
   }
-  if (localStorage.getItem("soundOn") == true) {
+  if (localStorage.getItem("soundOn") == "true") {
     this.music.play();
   } else {
     this.music.pause();
@@ -1187,10 +1186,10 @@ function createSinglePlayer() {
   }, 100);
 
   //level skipping, comment out for final build
-
+  /*
   this.input.keyboard.on("keydown-Z", function (event) {
     loadNextSingleLevel();
-  });
+  });*/
 
   createAnimations(scene);
   loadNextSingleLevel();
@@ -1403,7 +1402,7 @@ function updateSinglePlayer(time, delta) {
     }
     const jump = Phaser.Input.Keyboard.JustDown(this.jumpKey);
 
-    if (jump /*&& localPlayer.body.blocked.down*/ || (jump && coyote)) {
+    if ((jump && localPlayer.body.blocked.down) || (jump && coyote)) {
       if (localPlayer.crouchActive) {
         localPlayer.setVelocityY(-270);
       } else {
@@ -2793,7 +2792,18 @@ function applyLevels(data) {
 }
 
 let volume = document.getElementById("volumeBtn");
-let volumeOn = true;
+let volumeOn;
+if (localStorage.getItem("soundOn") == null) {
+  localStorage.setItem("soundOn", true);
+}
+if (localStorage.getItem("soundOn") == "true") {
+  volume.src = "assets/volumeOn.png";
+  volumeOn = true;
+} else {
+  volume.src = "assets/volumeOff.png";
+  volumeOn = false;
+}
+
 volume.addEventListener("click", function () {
   if (!scene) return;
   if (volumeOn) {
@@ -3349,7 +3359,7 @@ function create() {
   if (localStorage.getItem("soundOn") == null) {
     localStorage.setItem("soundOn", true);
   }
-  if (localStorage.getItem("soundOn") == true) {
+  if (localStorage.getItem("soundOn") == "true") {
     this.music.play();
   } else {
     this.music.pause();
